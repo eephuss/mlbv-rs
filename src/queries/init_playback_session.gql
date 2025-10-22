@@ -1,0 +1,41 @@
+mutation initPlaybackSession(
+  $adCapabilities: [AdExperienceType]
+  $mediaId: String!
+  $deviceId: String!
+  $sessionId: String!
+  $quality: PlaybackQuality
+) {
+  initPlaybackSession(
+    adCapabilities: $adCapabilities
+    mediaId: $mediaId
+    deviceId: $deviceId
+    sessionId: $sessionId
+    quality: $quality
+  ) {
+    playbackSessionId
+    playback {
+      url
+      token
+      expiration
+      cdn
+    }
+    adScenarios {
+      adParamsObj
+      adScenarioType
+      adExperienceType
+    }
+    adExperience {
+      adExperienceTypes
+      adEngineIdentifiers {
+        name
+        value
+      }
+      adsEnabled
+    }
+    heartbeatInfo {
+      url
+      interval
+    }
+    trackingObj
+  }
+}

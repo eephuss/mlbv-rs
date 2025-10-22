@@ -1,0 +1,26 @@
+mutation initSession(
+  $device: InitSessionInput!
+  $clientType: ClientType!
+  $experience: ExperienceTypeInput
+) {
+  initSession(
+    device: $device
+    clientType: $clientType
+    experience: $experience
+  ) {
+    deviceId
+    sessionId
+    entitlements {
+      code
+    }
+    location {
+      countryCode
+      regionName
+      zipCode
+      latitude
+      longitude
+    }
+    clientExperience
+    features
+  }
+}

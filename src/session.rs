@@ -23,13 +23,13 @@ pub struct Authenticated {
     pub authn: AuthnResponse,
 }
 
-pub struct Authorized {
+pub struct OktaCodeReceived {
     pub client_id: String,
     pub okta_code: String,
     pub pkce_verifier: PkceCodeVerifier,
 }
 
-pub struct Tokens {
+pub struct Authorized {
     pub okta_tokens: OktaAuthResponse,
 }
 
@@ -43,11 +43,11 @@ pub struct AuthnResponse {
 
 #[derive(Debug, Deserialize)]
 pub struct OktaAuthResponse {
-    pub token_type: String,
-    pub expires_in: u32,
+    // pub token_type: String,
+    // pub expires_in: u32,
     pub access_token: String,
-    pub scope: String,
-    pub id_token: String,
+    // pub scope: String,
+    // pub id_token: String,
 }
 
 impl MlbSession<Unauthenticated> {
@@ -74,6 +74,7 @@ impl MlbSession<Unauthenticated> {
             }
         });
 
+        // TODO: Handle invalid authentication / bad credentials.
         let res = self
             .client
             .post("https://ids.mlb.com/api/v1/authn")
@@ -106,7 +107,7 @@ impl MlbSession<Authenticated> {
         anyhow::bail!("clientId not found in OKTA JS")
     }
 
-    pub async fn fetch_okta_code(self) -> anyhow::Result<MlbSession<Authorized>> {
+    pub async fn fetch_okta_code(self) -> anyhow::Result<MlbSession<OktaCodeReceived>> {
         let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
         let state = CsrfToken::new_random_len(48);
         let nonce = CsrfToken::new_random_len(48);
@@ -140,7 +141,7 @@ impl MlbSession<Authenticated> {
                 let okta_code = unescape(m.as_str())?;
                 return Ok(MlbSession {
                     client: self.client,
-                    state: Authorized {
+                    state: OktaCodeReceived {
                         client_id,
                         okta_code,
                         pkce_verifier,
@@ -152,8 +153,8 @@ impl MlbSession<Authenticated> {
     }
 }
 
-impl MlbSession<Authorized> {
-    pub async fn exchange_tokens(self) -> anyhow::Result<MlbSession<Tokens>> {
+impl MlbSession<OktaCodeReceived> {
+    pub async fn exchange_tokens(self) -> anyhow::Result<MlbSession<Authorized>> {
         let res = self
             .client
             .post(OKTA_TOKEN_URL)
@@ -173,7 +174,7 @@ impl MlbSession<Authorized> {
 
         Ok(MlbSession {
             client: self.client,
-            state: Tokens {
+            state: Authorized {
                 okta_tokens: res_body,
             },
         })

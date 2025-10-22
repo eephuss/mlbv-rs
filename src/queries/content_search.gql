@@ -1,0 +1,43 @@
+query contentSearch($query: String!, $limit: Int = 10, $skip: Int = 0) {
+  contentSearch(query: $query, limit: $limit, skip: $skip) {
+    total
+    content {
+      audioTracks {
+        language
+        name
+        renditionName
+        trackType
+      }
+      contentId
+      mediaId
+      contentType
+      contentRestrictions
+      contentRestrictionDetails {
+        code
+        details
+      }
+      sportId
+      feedType
+      callSign
+      mediaState {
+        state
+        mediaType
+        contentExperience
+      }
+      fields {
+        name
+        value
+      }
+      milestones {
+        milestoneType
+        relativeTime
+        absoluteTime
+        title
+        keywords {
+          name
+          value
+        }
+      }
+    }
+  }
+}
