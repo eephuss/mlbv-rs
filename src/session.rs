@@ -1,8 +1,12 @@
-use anyhow::Ok;
+use std::{fs::{self, create_dir_all}};
+use chrono::{DateTime, Duration, Utc};
+use crate::config::project_dirs;
+
+use anyhow::{Context, Ok};
 use oauth2::{CsrfToken, PkceCodeChallenge, PkceCodeVerifier};
 use regex::Regex;
 use reqwest::Client;
-use serde::Deserialize;
+use serde::{Serialize, Deserialize};
 use serde_json::json;
 use unescaper::unescape;
 
@@ -41,13 +45,28 @@ pub struct AuthnResponse {
     pub session_token: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct OktaAuthResponse {
-    // pub token_type: String,
-    // pub expires_in: u32,
+    pub token_type: String,
+    pub expires_in: i64,
     pub access_token: String,
-    // pub scope: String,
-    // pub id_token: String,
+    pub scope: String,
+    pub id_token: String,
+    pub expires_at: Option<DateTime<Utc>>, // Not from API.
+}
+
+impl OktaAuthResponse {
+    pub fn save(&self) -> anyhow::Result<()> {
+        let cache_dir = project_dirs().cache_dir().to_path_buf();
+        let token_file = cache_dir.join("token.json");
+        create_dir_all(&cache_dir)?;
+
+        let json = serde_json::to_string_pretty(self)?;
+        fs::write(&token_file, json).context("Failed to save token to file.")?;
+        println!("Saved okta auth token to {:?}", cache_dir);
+
+        Ok(())
+    }   
 }
 
 impl MlbSession<Unauthenticated> {
@@ -89,6 +108,16 @@ impl MlbSession<Unauthenticated> {
             client: self.client,
             state: Authenticated { authn },
         })
+    }
+
+    pub async fn login_and_authorize(self, username: &str, password: &str) -> anyhow::Result<MlbSession<Authorized>> {
+        let session = self.authenticate(username, password).await?;
+        let session = session.fetch_okta_code().await?;
+        let mut session = session.exchange_code_for_token().await?;
+
+        session.state.okta_tokens.expires_at = Some(Utc::now() + Duration::seconds(session.state.okta_tokens.expires_in));
+        session.state.okta_tokens.save()?;
+        Ok(session)
     }
 }
 
@@ -154,7 +183,7 @@ impl MlbSession<Authenticated> {
 }
 
 impl MlbSession<OktaCodeReceived> {
-    pub async fn exchange_tokens(self) -> anyhow::Result<MlbSession<Authorized>> {
+    pub async fn exchange_code_for_token(self) -> anyhow::Result<MlbSession<Authorized>> {
         let res = self
             .client
             .post(OKTA_TOKEN_URL)

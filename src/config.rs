@@ -48,6 +48,10 @@ pub struct Credentials {
     pub password: String,
 }
 
+pub fn project_dirs() -> ProjectDirs {
+    ProjectDirs::from("", "", "mlbv-rs").expect("Could not resolve project directory.")
+}
+
 impl AppConfig {
     fn prompt_credential(label: &str) -> io::Result<String> {
         print!("Enter mlb.tv {}: ", label);
@@ -82,9 +86,7 @@ impl AppConfig {
     }
 
     pub fn load() -> anyhow::Result<Self> {
-        let proj_dirs =
-            ProjectDirs::from("", "", "mlbv-rs").expect("Could not resolve config directory");
-        let config_dir = proj_dirs.config_dir().to_path_buf();
+        let config_dir = project_dirs().config_dir().to_path_buf();
         let config_file = config_dir.join("config.toml");
 
         // ensure the config exists (creates from template if needed)

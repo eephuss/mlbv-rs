@@ -42,7 +42,7 @@ pub struct GameData {
     calendar_event_id: String,
     season_display: String,
     day_night: String,
-    description: String,
+    description: Option<String>,
     scheduled_innings: u8,
     reverse_home_away_status: bool,
     inning_break_length: u8,

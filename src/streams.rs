@@ -316,42 +316,38 @@ pub async fn play_game_stream(
     team: &str,
     date_opt: &str,
     media_type: &str, // TODO: Make this a proper enum
-    feed_type: &str, // TODO: Make this a proper enum
+    feed_type: Option<&str>, // TODO: Make this a proper enum
     game_number: Option<&u8>,
     // media_player: Option<MediaPlayer>,
 ) -> anyhow::Result<()> {
     // Get games for specified date. If none, end here.
-    let schedule = match get_games_by_date(session, Some(date_opt)).await? {
-        Some(sched) => sched,
-        None => {
-            println!("No games scheduled for {:?}", date_opt);
-            return Ok(());
-        }
+    let Some(schedule) = get_games_by_date(session, Some(date_opt)).await? else {
+        println!("No games scheduled for {:?}", date_opt);
+        return Ok(());
     };
 
     // If there are any games, is specified team playing? If not, end here.
-    let team_games = match find_team_games(schedule, team)? {
-        Some(team_games) => team_games,
-        None => {
-            println!("Looks like the {team} aren't playing today.");
-            return Ok(());
-        }
+    let Some(team_games) = find_team_games(schedule, team)? else {
+        println!("Looks like the {team} aren't playing today.");
+        return Ok(());        
     };
-
+    
     // If there's a doubleheader, select which game to retrieve.
     let game_data = select_doubleheader_game(team_games, game_number)?;
     let game_pk = game_data.game_pk.to_string();
+
+    // If user specifies a feed type, use it. Else match to team.
+    let feed_type = feed_type.unwrap_or(
+        if game_data.teams.home.team.name == team { "HOME" } else { "AWAY" }
+    );
 
     // Get available feeds for selected game_pk
     let stream_data: Vec<StreamData> = get_available_feeds(session, &game_pk).await?;
 
     // Select most appropriate feed given user preferences
-    let stream_data: StreamData = match select_game_feed(stream_data, media_type, feed_type) {
-        Some(stream_data) => stream_data,
-        None => {
-            println!("No streams found that meet user criteria.");
-            return Ok(());
-        }
+    let Some(stream_data) = select_game_feed(stream_data, media_type, feed_type) else {
+        println!("No streams found that meet user criteria.");
+        return Ok(());
     };
     let media_id = &stream_data.media_id;
 

@@ -14,15 +14,11 @@ async fn main() -> anyhow::Result<()> {
     let team = "Seattle Mariners";
 
     let session = MlbSession::new()?
-        .authenticate(&cfg.credentials.username, &cfg.credentials.password)
-        .await?
-        .fetch_okta_code()
-        .await?
-        .exchange_tokens()
+        .login_and_authorize(&cfg.credentials.username, &cfg.credentials.password)
         .await?;
 
     // TODO: Add cute messaging depending if there are no games during season (off-day) or offseason (see you next spring!)
-    play_game_stream(&session, team, date, "AUDIO", "AWAY", None).await?;
+    play_game_stream(&session, team, date, "VIDEO", "NETWORK", None).await?;
 
     Ok(())
 }
