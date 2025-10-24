@@ -1,11 +1,14 @@
 #![allow(dead_code)] // Shush unused refernce warnings until I know what fields are needed
 
+use crate::{
+    gamedata::{find_team_games, get_games_by_date, select_doubleheader_game},
+    session::{Authorized, MlbSession},
+};
 use serde::Deserialize;
 use serde_json::json;
-use crate::{gamedata::{find_team_games, get_games_by_date, select_doubleheader_game}, session::{MlbSession, Authorized}};
-use std::process::Command;
+use std::{io, path::{PathBuf}, process::Command};
 
-const MEDIA_GATEWAY_URL: & 'static str = "https://media-gateway.mlb.com/graphql";
+const MEDIA_GATEWAY_URL: &'static str = "https://media-gateway.mlb.com/graphql";
 const CONTENT_SEARCH_GQL: &str = include_str!("queries/content_search.gql");
 const INIT_SESSION_GQL: &str = include_str!("queries/init_session.gql");
 const INIT_PLAYBACK_SESSION_GQL: &str = include_str!("queries/init_playback_session.gql");
@@ -18,7 +21,7 @@ struct ContentSearchResponse {
 #[derive(Debug, Deserialize)]
 struct Data {
     #[serde(rename = "contentSearch")]
-    content_search: ContentSearchResults
+    content_search: ContentSearchResults,
 }
 
 #[derive(Debug, Deserialize)]
@@ -114,7 +117,7 @@ struct InitSessionResults {
 
 #[derive(Debug, Deserialize)]
 struct Entitlement {
-    code: String
+    code: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -158,7 +161,10 @@ pub struct Playback {
 }
 
 // This query fetches the available feeds for a specified game_pk.
-pub async fn get_available_feeds(session: &MlbSession<Authorized>, game_pk: &str) -> anyhow::Result<Vec<StreamData>> {
+pub async fn get_available_feeds(
+    session: &MlbSession<Authorized>,
+    game_pk: &str,
+) -> anyhow::Result<Vec<StreamData>> {
     let access_token = &session.state.okta_tokens.access_token;
 
     let variables_query = format!(
@@ -175,7 +181,8 @@ pub async fn get_available_feeds(session: &MlbSession<Authorized>, game_pk: &str
         }
     });
 
-    let res = session.client
+    let res = session
+        .client
         .post(MEDIA_GATEWAY_URL)
         .header("Authorization", format!("Bearer {}", access_token))
         .header("x-bamsdk-version", "3.4")
@@ -203,7 +210,8 @@ async fn init_media_session(session: &MlbSession<Authorized>) -> anyhow::Result<
         }
     });
 
-    let res = session.client
+    let res = session
+        .client
         .post(MEDIA_GATEWAY_URL)
         .header("Authorization", format!("Bearer {}", access_token))
         .header("x-bamsdk-version", "3.4")
@@ -222,8 +230,11 @@ async fn init_media_session(session: &MlbSession<Authorized>) -> anyhow::Result<
     Ok((session_id, device_id))
 }
 
-// Use mediaID, sessionID and deviceID to initPlaybackSession and retrieve stream URI. 
-pub async fn init_playback_session(session: &MlbSession<Authorized>, media_id: &str) -> anyhow::Result<InitPlaybackSessionResults> {
+// Use mediaID, sessionID and deviceID to initPlaybackSession and retrieve stream URI.
+pub async fn init_playback_session(
+    session: &MlbSession<Authorized>,
+    media_id: &str,
+) -> anyhow::Result<InitPlaybackSessionResults> {
     let access_token = &session.state.okta_tokens.access_token;
     let (session_id, device_id) = init_media_session(&session).await?;
 
@@ -239,7 +250,8 @@ pub async fn init_playback_session(session: &MlbSession<Authorized>, media_id: &
         }
     });
 
-    let res = session.client
+    let res = session
+        .client
         .post(MEDIA_GATEWAY_URL)
         .header("Authorization", format!("Bearer {}", access_token))
         .header("x-bamsdk-version", "3.4")
@@ -255,7 +267,11 @@ pub async fn init_playback_session(session: &MlbSession<Authorized>, media_id: &
     Ok(res_body.data.init_playback_session)
 }
 
-fn select_game_feed(stream_data: Vec<StreamData>, media_type: &str, feed_type: &str) -> Option<StreamData> {
+fn select_game_feed(
+    stream_data: Vec<StreamData>,
+    media_type: &str,
+    feed_type: &str,
+) -> Option<StreamData> {
     // Filter out inactive streams.
     let mut active_streams: Vec<StreamData> = stream_data
         .into_iter()
@@ -269,11 +285,10 @@ fn select_game_feed(stream_data: Vec<StreamData>, media_type: &str, feed_type: &
 
     // Return stream matching user preferences if one available.
     if let Some(pos) = active_streams.iter().position(|stream| {
-        stream.feed_type == feed_type &&
-        stream.media_state.media_type == media_type
+        stream.feed_type == feed_type && stream.media_state.media_type == media_type
     }) {
         println!("Feed matching user preferences found");
-        return Some(active_streams.swap_remove(pos))
+        return Some(active_streams.swap_remove(pos));
     }
 
     // If no matches, fall back to National broadcast. Most common cause of match failure is national-only broadcasts.
@@ -282,7 +297,7 @@ fn select_game_feed(stream_data: Vec<StreamData>, media_type: &str, feed_type: &
         stream.media_state.media_type == media_type
     }) {
         println!("{feed_type} broadcast not found. Defaulting to National feed.");
-        return Some(active_streams.swap_remove(pos))
+        return Some(active_streams.swap_remove(pos));
     }
 
     // If user has selected audio-only they may be bandwitch constrained. Falling back to video inappropriate.
@@ -293,19 +308,74 @@ fn select_game_feed(stream_data: Vec<StreamData>, media_type: &str, feed_type: &
 
     // If no matches and no National broadcast try audio feed. User may be blacked out from video but audio accessible.
     if let Some(pos) = active_streams.iter().position(|stream| {
-        stream.feed_type == feed_type &&
-        stream.media_state.media_type == "AUDIO"
+        stream.feed_type == feed_type && stream.media_state.media_type == "AUDIO"
     }) {
-        println!("No video feeds are available for this game. User may be blacked out. Defaulting to audio feed.");
-        return Some(active_streams.swap_remove(pos))
+        println!(
+            "No video feeds are available for this game. User may be blacked out. Defaulting to audio feed."
+        );
+        return Some(active_streams.swap_remove(pos));
     }
 
     // If none of the above conditions are met but there are somehow still active feeds remaining, just grab first one.
     active_streams.into_iter().next()
 }
 
-fn play_stream(url: &str, media_player: &str) -> anyhow::Result<()> {
-    Command::new(media_player).arg(url).spawn()?;
+fn find_in_path(command: &str) -> io::Result<PathBuf> {
+    let not_found_error = io::Error::new(
+        io::ErrorKind::NotFound,
+        format!("Command '{}' not found in PATH", command),
+    );
+
+    #[cfg(target_os = "windows")]
+    let output = Command::new("where").arg(command).output()?;
+
+    #[cfg(not(target_os = "windows"))]
+    let output = Command::new("which").arg(command).output()?;
+
+    if !output.status.success() {
+        return Err(not_found_error);
+    }
+
+    let stdout_str = String::from_utf8_lossy(&output.stdout);
+    let lines: Vec<_> = stdout_str
+        .lines()
+        .map(str::trim)
+        .collect();
+
+    let path = lines
+        .iter()
+        .find(|s| s.ends_with(".exe"))
+        .or_else(|| lines.first())
+        .ok_or(not_found_error)?;
+
+    Ok(PathBuf::from(path))
+}
+
+pub fn resolve_media_player(media_player: &str) -> io::Result<(String, Vec<String>)> {
+    // Use specified player if found in PATH
+    if let Ok(path) = find_in_path(media_player) {
+        return Ok((path.to_string_lossy().into_owned(), Vec::new()));
+    }
+
+    // Otherwise fall back to OS default
+    #[cfg(target_os = "windows")]
+    {
+        Ok(("cmd".into(), vec!["/C".into(), "start".into()]))
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        Ok(("open".into(), Vec::new()))
+    }
+
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        Ok(("xdg-open".into(), Vec::new()))
+    }
+}
+
+fn play_stream(command: &str, args: Vec<String>) -> anyhow::Result<()> {
+    Command::new(command).args(args).spawn()?;
 
     Ok(())
 }
@@ -315,7 +385,7 @@ pub async fn play_game_stream(
     session: &MlbSession<Authorized>,
     team: &str,
     date_opt: &str,
-    media_type: &str, // TODO: Make this a proper enum
+    media_type: &str,        // TODO: Make this a proper enum
     feed_type: Option<&str>, // TODO: Make this a proper enum
     game_number: Option<&u8>,
     // media_player: Option<MediaPlayer>,
@@ -329,17 +399,19 @@ pub async fn play_game_stream(
     // If there are any games, is specified team playing? If not, end here.
     let Some(team_games) = find_team_games(schedule, team)? else {
         println!("Looks like the {team} aren't playing today.");
-        return Ok(());        
+        return Ok(());
     };
-    
+
     // If there's a doubleheader, select which game to retrieve.
     let game_data = select_doubleheader_game(team_games, game_number)?;
     let game_pk = game_data.game_pk.to_string();
 
     // If user specifies a feed type, use it. Else match to team.
-    let feed_type = feed_type.unwrap_or(
-        if game_data.teams.home.team.name == team { "HOME" } else { "AWAY" }
-    );
+    let feed_type = feed_type.unwrap_or(if game_data.teams.home.team.name == team {
+        "HOME"
+    } else {
+        "AWAY"
+    });
 
     // Get available feeds for selected game_pk
     let stream_data: Vec<StreamData> = get_available_feeds(session, &game_pk).await?;
@@ -353,10 +425,14 @@ pub async fn play_game_stream(
 
     // Initialize a playback session containing stream URL.
     let playback_session = init_playback_session(&session, media_id).await?;
+    println!("{:?}", playback_session.playback.url);
 
-    let media_player = "mpv.exe";
+    let media_player = "mpv";
+    let (command, mut args) = resolve_media_player(media_player)?;
+    args.push(playback_session.playback.url);
+
     // Send playback URL and other relevant info to media player.
-    play_stream(playback_session.playback.url.as_str(), media_player)?;
+    play_stream(&command, args)?;
 
     Ok(())
 }

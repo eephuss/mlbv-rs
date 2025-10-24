@@ -1,12 +1,12 @@
-use std::{fs::{self, create_dir_all}};
-use chrono::{DateTime, Duration, Utc};
 use crate::config::project_dirs;
+use chrono::{DateTime, Duration, Utc};
+use std::fs::{self, create_dir_all};
 
 use anyhow::{Context, Ok};
 use oauth2::{CsrfToken, PkceCodeChallenge, PkceCodeVerifier};
 use regex::Regex;
 use reqwest::Client;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use serde_json::json;
 use unescaper::unescape;
 
@@ -133,7 +133,11 @@ impl MlbSession<Unauthenticated> {
         })
     }
 
-    pub async fn login_and_authorize(self, username: &str, password: &str) -> anyhow::Result<MlbSession<Authorized>> {
+    pub async fn login_and_authorize(
+        self,
+        username: &str,
+        password: &str,
+    ) -> anyhow::Result<MlbSession<Authorized>> {
         if let Some(cached_token) = OktaAuthResponse::load()? {
             if cached_token.is_valid() {
                 println!("Loaded existing token from cache.");
@@ -150,7 +154,8 @@ impl MlbSession<Unauthenticated> {
         let session = session.fetch_okta_code().await?;
         let mut session = session.exchange_code_for_token().await?;
 
-        session.state.okta_tokens.expires_at = Some(Utc::now() + Duration::seconds(session.state.okta_tokens.expires_in));
+        session.state.okta_tokens.expires_at =
+            Some(Utc::now() + Duration::seconds(session.state.okta_tokens.expires_in));
         session.state.okta_tokens.save()?;
         Ok(session)
     }

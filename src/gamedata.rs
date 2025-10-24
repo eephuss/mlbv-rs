@@ -1,8 +1,8 @@
 #![allow(dead_code)] // Shush unused refernce warnings until I know what fields are needed
 
+use crate::session::MlbSession;
 use chrono::Utc;
 use serde::Deserialize;
-use crate::session::MlbSession;
 
 #[derive(Debug, Deserialize)]
 struct ScheduleResponse {
@@ -203,7 +203,10 @@ struct Playback {
 }
 
 // TODO: Update to use start and end date logic.
-pub async fn get_games_by_date<State>(session: &MlbSession<State>, date_opt: Option<&str>) -> anyhow::Result<Option<DaySchedule>> {
+pub async fn get_games_by_date<State>(
+    session: &MlbSession<State>,
+    date_opt: Option<&str>,
+) -> anyhow::Result<Option<DaySchedule>> {
     let date = match date_opt {
         Some(s) => s.to_string(),
         None => Utc::now().format("%Y-%m-%d").to_string(),
@@ -223,7 +226,8 @@ pub async fn get_games_by_date<State>(session: &MlbSession<State>, date_opt: Opt
         h = hydrate
     );
 
-    let res = session.client
+    let res = session
+        .client
         .get(url)
         .header("Connection", "close")
         .send()
@@ -232,20 +236,24 @@ pub async fn get_games_by_date<State>(session: &MlbSession<State>, date_opt: Opt
     let body: ScheduleResponse = res.json().await?;
 
     match body.dates.len() {
-        0 => Ok(None), // If no games are scheduled, then no dates are returned. 
+        0 => Ok(None), // If no games are scheduled, then no dates are returned.
         1 => Ok(Some(body.dates.into_iter().next().unwrap())),
-        n => anyhow::bail!("Expected 1 date but got {n} - possible API change.")
+        n => anyhow::bail!("Expected 1 date but got {n} - possible API change."),
     }
 }
 
 impl<State> MlbSession<State> {
-    pub async fn get_games_by_date(&self, date_opt: Option<&str>) -> anyhow::Result<Option<DaySchedule>> {
+    pub async fn get_games_by_date(
+        &self,
+        date_opt: Option<&str>,
+    ) -> anyhow::Result<Option<DaySchedule>> {
         get_games_by_date(self, date_opt).await
     }
 }
 
 pub fn find_team_games(schedule: DaySchedule, team: &str) -> anyhow::Result<Option<Vec<GameData>>> {
-    let team_games: Vec<GameData> = schedule.games
+    let team_games: Vec<GameData> = schedule
+        .games
         .into_iter()
         .filter(|game| {
             let home = &game.teams.home.team.name;
@@ -255,20 +263,25 @@ pub fn find_team_games(schedule: DaySchedule, team: &str) -> anyhow::Result<Opti
         .collect();
 
     match team_games.len() {
-        0 => Ok(None), // Your team isn't playing today.
-        1|2 => Ok(Some(team_games)), // Your team has a game or doubleheader today.
-        n => anyhow::bail!("Teams play a maximum of 2 games per day. Got {n}") // It's been over 100 years since the last MLB tripleheader.
+        0 => Ok(None),                 // Your team isn't playing today.
+        1 | 2 => Ok(Some(team_games)), // Your team has a game or doubleheader today.
+        n => anyhow::bail!("Teams play a maximum of 2 games per day. Got {n}"), // It's been over 100 years since the last MLB tripleheader.
     }
 }
 
-pub fn select_doubleheader_game(team_games: Vec<GameData>, game_number: Option<&u8>) -> anyhow::Result<GameData> {
+pub fn select_doubleheader_game(
+    team_games: Vec<GameData>,
+    game_number: Option<&u8>,
+) -> anyhow::Result<GameData> {
     match team_games.len() {
-        0 => anyhow::bail!("I thought your team was playing today but there's no game data here. Aborting."),
+        0 => anyhow::bail!(
+            "I thought your team was playing today but there's no game data here. Aborting."
+        ),
         1 => Ok(team_games.into_iter().next().unwrap()), // Not much to do if there's only 1 game that day.
         2 => {
             // If a valid game_number is specified, return that game.
             if let Some(n) = game_number {
-                if [1,2].contains(&n) {
+                if [1, 2].contains(&n) {
                     Ok(team_games.into_iter().nth((n - 1) as usize).unwrap())
                 } else {
                     anyhow::bail!("Invalid game number.")
@@ -284,9 +297,11 @@ pub fn select_doubleheader_game(team_games: Vec<GameData>, game_number: Option<&
                     Ok(game_two)
                 } else {
                     Ok(game_one) // default to game 1
-                }                
+                }
             }
         }
-        n => anyhow::bail!("The last MLB tripleheader was played in 1920. Your team probably isn't playing {n} games today. Likely API change.")
+        n => anyhow::bail!(
+            "The last MLB tripleheader was played in 1920. Your team probably isn't playing {n} games today. Likely API change."
+        ),
     }
 }
