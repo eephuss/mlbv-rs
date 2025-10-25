@@ -66,7 +66,30 @@ impl OktaAuthResponse {
         println!("Saved okta auth token to {:?}", cache_dir);
 
         Ok(())
-    }   
+    }
+
+    pub fn load() -> anyhow::Result<Option<Self>> {
+        let token_file = project_dirs().cache_dir().join("token.json");
+        if !token_file.exists() {
+            return Ok(None);
+        }
+        let data = fs::read_to_string(&token_file)?;
+        let token: Self = serde_json::from_str(&data)?;
+
+        Ok(Some(token))
+    }
+
+    pub fn is_valid(&self) -> bool {
+        // Consider token invalid if it'll expire in the next 60s
+        let now = Utc::now();
+        let buffer = Duration::seconds(60);
+
+        if let Some(expires_at) = self.expires_at {
+            expires_at > now + buffer
+        } else {
+            false
+        }
+    }
 }
 
 impl MlbSession<Unauthenticated> {
@@ -111,6 +134,18 @@ impl MlbSession<Unauthenticated> {
     }
 
     pub async fn login_and_authorize(self, username: &str, password: &str) -> anyhow::Result<MlbSession<Authorized>> {
+        if let Some(cached_token) = OktaAuthResponse::load()? {
+            if cached_token.is_valid() {
+                println!("Loaded existing token from cache.");
+                return Ok(MlbSession {
+                    client: self.client,
+                    state: Authorized {
+                        okta_tokens: cached_token
+                    },
+                });
+            }
+        }
+
         let session = self.authenticate(username, password).await?;
         let session = session.fetch_okta_code().await?;
         let mut session = session.exchange_code_for_token().await?;
