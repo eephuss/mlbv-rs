@@ -1,20 +1,16 @@
-use crate::config::project_dirs;
+use crate::config;
+use anyhow::{Context, Result};
 use chrono::{DateTime, Duration, Utc};
-use std::fs::{self, create_dir_all};
-
-use anyhow::{Context, Ok};
 use oauth2::{CsrfToken, PkceCodeChallenge, PkceCodeVerifier};
 use regex::Regex;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use serde_json::json;
-use unescaper::unescape;
+use std::fs;
 
-const USER_AGENT: &'static str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36";
-const MLB_OKTA_URL: &'static str = "https://www.mlbstatic.com/mlb.com/vendor/mlb-okta/mlb-okta.js";
-const OKTA_AUTHORIZE_URL: &'static str =
-    "https://ids.mlb.com/oauth2/aus1m088yK07noBfh356/v1/authorize";
-const OKTA_TOKEN_URL: &'static str = "https://ids.mlb.com/oauth2/aus1m088yK07noBfh356/v1/token";
+const USER_AGENT: &str = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36";
+const MLB_OKTA_URL: &str = "https://www.mlbstatic.com/mlb.com/vendor/mlb-okta/mlb-okta.js";
+const OKTA_AUTHORIZE_URL: &str = "https://ids.mlb.com/oauth2/aus1m088yK07noBfh356/v1/authorize";
+const OKTA_TOKEN_URL: &str = "https://ids.mlb.com/oauth2/aus1m088yK07noBfh356/v1/token";
 
 pub struct MlbSession<State> {
     pub client: reqwest::Client,
@@ -56,10 +52,10 @@ pub struct OktaAuthResponse {
 }
 
 impl OktaAuthResponse {
-    pub fn save(&self) -> anyhow::Result<()> {
-        let cache_dir = project_dirs().cache_dir().to_path_buf();
+    pub fn save(&self) -> Result<()> {
+        let cache_dir = config::project_dirs().cache_dir().to_path_buf();
         let token_file = cache_dir.join("token.json");
-        create_dir_all(&cache_dir)?;
+        fs::create_dir_all(&cache_dir)?;
 
         let json = serde_json::to_string_pretty(self)?;
         fs::write(&token_file, json).context("Failed to save token to file.")?;
@@ -68,8 +64,8 @@ impl OktaAuthResponse {
         Ok(())
     }
 
-    pub fn load() -> anyhow::Result<Option<Self>> {
-        let token_file = project_dirs().cache_dir().join("token.json");
+    pub fn load() -> Result<Option<Self>> {
+        let token_file = config::project_dirs().cache_dir().join("token.json");
         if !token_file.exists() {
             return Ok(None);
         }
@@ -93,7 +89,7 @@ impl OktaAuthResponse {
 }
 
 impl MlbSession<Unauthenticated> {
-    pub fn new() -> anyhow::Result<Self> {
+    pub fn new() -> Result<Self> {
         let client = Client::builder().user_agent(USER_AGENT).build()?;
 
         Ok(Self {
@@ -106,8 +102,8 @@ impl MlbSession<Unauthenticated> {
         self,
         username: &str,
         password: &str,
-    ) -> anyhow::Result<MlbSession<Authenticated>> {
-        let req_body = json!({
+    ) -> Result<MlbSession<Authenticated>> {
+        let req_body = serde_json::json!({
             "username": username,
             "password": password,
             "options": {
@@ -133,21 +129,17 @@ impl MlbSession<Unauthenticated> {
         })
     }
 
-    pub async fn login_and_authorize(
-        self,
-        username: &str,
-        password: &str,
-    ) -> anyhow::Result<MlbSession<Authorized>> {
-        if let Some(cached_token) = OktaAuthResponse::load()? {
-            if cached_token.is_valid() {
-                println!("Loaded existing token from cache.");
-                return Ok(MlbSession {
-                    client: self.client,
-                    state: Authorized {
-                        okta_tokens: cached_token
-                    },
-                });
-            }
+    pub async fn authorize(self, username: &str, password: &str) -> Result<MlbSession<Authorized>> {
+        if let Some(cached_token) = OktaAuthResponse::load()?
+            && cached_token.is_valid()
+        {
+            println!("Loaded existing token from cache.");
+            return Ok(MlbSession {
+                client: self.client,
+                state: Authorized {
+                    okta_tokens: cached_token,
+                },
+            });
         }
 
         let session = self.authenticate(username, password).await?;
@@ -162,21 +154,21 @@ impl MlbSession<Unauthenticated> {
 }
 
 impl MlbSession<Authenticated> {
-    async fn fetch_client_id(&self) -> anyhow::Result<String> {
+    async fn fetch_client_id(&self) -> Result<String> {
         let res = self.client.get(MLB_OKTA_URL).send().await?;
         let res_body = res.text().await?;
 
         // Capture the value after production:{clientId:" and before the next "
         let re = Regex::new(r#"production:\{clientId:"([^"]+)","#)?;
-        if let Some(caps) = re.captures(&res_body) {
-            if let Some(client_id) = caps.get(1) {
-                return Ok(client_id.as_str().to_string());
-            }
+        if let Some(caps) = re.captures(&res_body)
+            && let Some(client_id) = caps.get(1)
+        {
+            return Ok(client_id.as_str().to_string());
         }
         anyhow::bail!("clientId not found in OKTA JS")
     }
 
-    pub async fn fetch_okta_code(self) -> anyhow::Result<MlbSession<OktaCodeReceived>> {
+    pub async fn fetch_okta_code(self) -> Result<MlbSession<OktaCodeReceived>> {
         let (pkce_challenge, pkce_verifier) = PkceCodeChallenge::new_random_sha256();
         let state = CsrfToken::new_random_len(48);
         let nonce = CsrfToken::new_random_len(48);
@@ -192,8 +184,8 @@ impl MlbSession<Authenticated> {
                 ("response_mode", "okta_post_message"),
                 ("scope", "openid profile email"),
                 ("redirect_uri", "https://www.mlb.com/login"),
-                ("state", &state.secret()),
-                ("nonce", &nonce.secret()),
+                ("state", state.secret()),
+                ("nonce", nonce.secret()),
                 ("code_challenge", pkce_challenge.as_str()),
                 ("code_challenge_method", "S256"),
                 ("sessionToken", self.state.authn.session_token.as_str()),
@@ -205,25 +197,25 @@ impl MlbSession<Authenticated> {
 
         // look for a line like: data.code = 'an_okta_code_in_single_quotes';
         let re = Regex::new(r#"data\.code\s*=\s*'([^']+)'"#)?;
-        if let Some(caps) = re.captures(&res_body) {
-            if let Some(m) = caps.get(1) {
-                let okta_code = unescape(m.as_str())?;
-                return Ok(MlbSession {
-                    client: self.client,
-                    state: OktaCodeReceived {
-                        client_id,
-                        okta_code,
-                        pkce_verifier,
-                    },
-                });
-            }
+        if let Some(caps) = re.captures(&res_body)
+            && let Some(m) = caps.get(1)
+        {
+            let okta_code = unescaper::unescape(m.as_str())?;
+            return Ok(MlbSession {
+                client: self.client,
+                state: OktaCodeReceived {
+                    client_id,
+                    okta_code,
+                    pkce_verifier,
+                },
+            });
         }
         anyhow::bail!("Authorization code not found in okta_post_message response")
     }
 }
 
 impl MlbSession<OktaCodeReceived> {
-    pub async fn exchange_code_for_token(self) -> anyhow::Result<MlbSession<Authorized>> {
+    pub async fn exchange_code_for_token(self) -> Result<MlbSession<Authorized>> {
         let res = self
             .client
             .post(OKTA_TOKEN_URL)

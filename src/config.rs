@@ -1,3 +1,4 @@
+use anyhow::Result;
 use directories::ProjectDirs;
 use serde::Deserialize;
 use std::fs;
@@ -62,7 +63,7 @@ impl AppConfig {
         Ok(input.trim().to_string())
     }
 
-    fn generate_config(config_dir: &PathBuf, config_file: &PathBuf) -> anyhow::Result<()> {
+    fn generate_config(config_dir: &PathBuf, config_file: &PathBuf) -> Result<()> {
         fs::create_dir_all(config_dir)?;
 
         let template_path = PathBuf::from("config_template.toml");
@@ -85,7 +86,7 @@ impl AppConfig {
         Ok(())
     }
 
-    pub fn load() -> anyhow::Result<Self> {
+    pub fn load() -> Result<Self> {
         let config_dir = project_dirs().config_dir().to_path_buf();
         let config_file = config_dir.join("config.toml");
 

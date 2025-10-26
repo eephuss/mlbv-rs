@@ -1,7 +1,7 @@
 #![allow(dead_code)] // Shush unused refernce warnings until I know what fields are needed
 
 use crate::session::MlbSession;
-use chrono::Utc;
+use anyhow::Result;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -205,12 +205,12 @@ struct Playback {
 // TODO: Update to use start and end date logic.
 pub async fn get_games_by_date<State>(
     session: &MlbSession<State>,
-    date_opt: Option<&str>,
-) -> anyhow::Result<Option<DaySchedule>> {
-    let date = match date_opt {
-        Some(s) => s.to_string(),
-        None => Utc::now().format("%Y-%m-%d").to_string(),
-    };
+    date: &str,
+) -> Result<Option<DaySchedule>> {
+    // let date = match date_opt {
+    //     Some(s) => s.to_string(),
+    //     None => Utc::now().format("%Y-%m-%d").to_string(),
+    // };
     let hydrate = concat!(
         "hydrate=,",
         "broadcasts(all),",
@@ -243,15 +243,12 @@ pub async fn get_games_by_date<State>(
 }
 
 impl<State> MlbSession<State> {
-    pub async fn get_games_by_date(
-        &self,
-        date_opt: Option<&str>,
-    ) -> anyhow::Result<Option<DaySchedule>> {
-        get_games_by_date(self, date_opt).await
+    pub async fn get_games_by_date(&self, date: &str) -> Result<Option<DaySchedule>> {
+        get_games_by_date(self, date).await
     }
 }
 
-pub fn find_team_games(schedule: DaySchedule, team: &str) -> anyhow::Result<Option<Vec<GameData>>> {
+pub fn find_team_games(schedule: DaySchedule, team: &str) -> Result<Option<Vec<GameData>>> {
     let team_games: Vec<GameData> = schedule
         .games
         .into_iter()
@@ -265,14 +262,11 @@ pub fn find_team_games(schedule: DaySchedule, team: &str) -> anyhow::Result<Opti
     match team_games.len() {
         0 => Ok(None),                 // Your team isn't playing today.
         1 | 2 => Ok(Some(team_games)), // Your team has a game or doubleheader today.
-        n => anyhow::bail!("Teams play a maximum of 2 games per day. Got {n}"), // It's been over 100 years since the last MLB tripleheader.
+        n => anyhow::bail!("Teams play a maximum of 2 games per day. Got {n}"),
     }
 }
 
-pub fn select_doubleheader_game(
-    team_games: Vec<GameData>,
-    game_number: Option<&u8>,
-) -> anyhow::Result<GameData> {
+pub fn select_game(team_games: Vec<GameData>, game_number: Option<&u8>) -> Result<GameData> {
     match team_games.len() {
         0 => anyhow::bail!(
             "I thought your team was playing today but there's no game data here. Aborting."
@@ -281,7 +275,7 @@ pub fn select_doubleheader_game(
         2 => {
             // If a valid game_number is specified, return that game.
             if let Some(n) = game_number {
-                if [1, 2].contains(&n) {
+                if [1, 2].contains(n) {
                     Ok(team_games.into_iter().nth((n - 1) as usize).unwrap())
                 } else {
                     anyhow::bail!("Invalid game number.")
@@ -292,11 +286,10 @@ pub fn select_doubleheader_game(
                 let game_one = iter.next().unwrap();
                 let game_two = iter.next().unwrap();
 
-                // TODO: Confirm correct statuses for games.
-                if game_two.status.abstract_game_state == "LIVE" {
+                if game_two.status.abstract_game_state == "Live" {
                     Ok(game_two)
                 } else {
-                    Ok(game_one) // default to game 1
+                    Ok(game_one)
                 }
             }
         }

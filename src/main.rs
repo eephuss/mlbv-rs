@@ -2,23 +2,25 @@ mod config;
 mod gamedata;
 mod session;
 mod streams;
+mod teams;
 
 use crate::config::AppConfig;
 use crate::session::MlbSession;
-use crate::streams::play_game_stream;
+use crate::streams::{FeedType, MediaType};
+use anyhow::Result;
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> Result<()> {
     let cfg = AppConfig::load()?;
     let date = "2025-09-24";
     let team = "Washington Nationals";
 
     let session = MlbSession::new()?
-        .login_and_authorize(&cfg.credentials.username, &cfg.credentials.password)
+        .authorize(&cfg.credentials.username, &cfg.credentials.password)
         .await?;
 
     // TODO: Add cute messaging depending if there are no games during season (off-day) or offseason (see you next spring!)
-    play_game_stream(&session, team, date, "VIDEO", None, None).await?;
+    streams::find_and_play_stream(&session, team, date, MediaType::Video, FeedType::Home, None).await?;
 
     Ok(())
 }

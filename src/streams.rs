@@ -1,14 +1,14 @@
 #![allow(dead_code)] // Shush unused refernce warnings until I know what fields are needed
 
-use crate::{
-    gamedata::{find_team_games, get_games_by_date, select_doubleheader_game},
-    session::{Authorized, MlbSession},
-};
+use crate::gamedata;
+use crate::session::{Authorized, MlbSession};
+use anyhow::Result;
 use serde::Deserialize;
-use serde_json::json;
-use std::{io, path::{PathBuf}, process::Command};
+use std::io;
+use std::path::PathBuf;
+use std::process::Command;
 
-const MEDIA_GATEWAY_URL: &'static str = "https://media-gateway.mlb.com/graphql";
+const MEDIA_GATEWAY_URL: &str = "https://media-gateway.mlb.com/graphql";
 const CONTENT_SEARCH_GQL: &str = include_str!("queries/content_search.gql");
 const INIT_SESSION_GQL: &str = include_str!("queries/init_session.gql");
 const INIT_PLAYBACK_SESSION_GQL: &str = include_str!("queries/init_playback_session.gql");
@@ -30,6 +30,14 @@ pub struct ContentSearchResults {
     pub content: Vec<StreamData>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "UPPERCASE")]
+pub enum FeedType {
+    Home,
+    Away,
+    Network,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StreamData {
@@ -40,7 +48,7 @@ pub struct StreamData {
     content_restrictions: Vec<String>,
     content_restriction_details: Vec<ContentRestrictionDetail>,
     sport_id: u8,
-    feed_type: String,
+    feed_type: FeedType,
     pub call_sign: String,
     media_state: MediaState,
     pub fields: Vec<Field>,
@@ -63,11 +71,18 @@ struct ContentRestrictionDetail {
     // details: serde_json::Value, // TODO: Find an example of content with restrictions to flesh this out.
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "UPPERCASE")]
+pub enum MediaType {
+    Audio,
+    Video,
+}
+
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MediaState {
     state: String,
-    media_type: String,
+    media_type: MediaType,
     content_experience: String,
 }
 
@@ -164,15 +179,25 @@ pub struct Playback {
 pub async fn get_available_feeds(
     session: &MlbSession<Authorized>,
     game_pk: &str,
-) -> anyhow::Result<Vec<StreamData>> {
+) -> Result<ContentSearchResults> {
     let access_token = &session.state.okta_tokens.access_token;
 
     let variables_query = format!(
-        "GamePk={} AND ContentType=\"GAME\" RETURNING HomeTeamId, HomeTeamName, AwayTeamId, AwayTeamName, Date, MediaType, ContentExperience, MediaState, PartnerCallLetters",
-        game_pk
+        "GamePk={game_pk} \
+        AND ContentType=\"GAME\" \
+        RETURNING \
+        HomeTeamId, \
+        HomeTeamName, \
+        AwayTeamId, \
+        AwayTeamName, \
+        Date, \
+        MediaType, \
+        ContentExperience, \
+        MediaState, \
+        PartnerCallLetters"
     );
 
-    let req_body = json!({
+    let req_body = serde_json::json!({
         "operationName": "contentSearch",
         "query": CONTENT_SEARCH_GQL,
         "variables": {
@@ -194,14 +219,15 @@ pub async fn get_available_feeds(
         .await?;
 
     let res_body: ContentSearchResponse = res.json().await?;
-    Ok(res_body.data.content_search.content)
+
+    Ok(res_body.data.content_search)
 }
 
 // Initializes a session and outputs the requisite IDs.
-async fn init_media_session(session: &MlbSession<Authorized>) -> anyhow::Result<(String, String)> {
+async fn init_media_session(session: &MlbSession<Authorized>) -> Result<(String, String)> {
     let access_token = &session.state.okta_tokens.access_token;
 
-    let req_body = json!({
+    let req_body = serde_json::json!({
         "operationName": "initSession",
         "query": INIT_SESSION_GQL,
         "variables": {
@@ -234,11 +260,11 @@ async fn init_media_session(session: &MlbSession<Authorized>) -> anyhow::Result<
 pub async fn init_playback_session(
     session: &MlbSession<Authorized>,
     media_id: &str,
-) -> anyhow::Result<InitPlaybackSessionResults> {
+) -> Result<InitPlaybackSessionResults> {
     let access_token = &session.state.okta_tokens.access_token;
-    let (session_id, device_id) = init_media_session(&session).await?;
+    let (session_id, device_id) = init_media_session(session).await?;
 
-    let req_body = json!({
+    let req_body = serde_json::json!({
         "operationName": "initPlaybackSession",
         "query": INIT_PLAYBACK_SESSION_GQL,
         "variables": {
@@ -267,60 +293,38 @@ pub async fn init_playback_session(
     Ok(res_body.data.init_playback_session)
 }
 
-fn select_game_feed(
-    stream_data: Vec<StreamData>,
-    media_type: &str,
-    feed_type: &str,
-) -> Option<StreamData> {
-    // Filter out inactive streams.
-    let mut active_streams: Vec<StreamData> = stream_data
-        .into_iter()
-        .filter(|stream| stream.media_state.state != "OFF")
-        .collect();
-
-    if active_streams.is_empty() {
-        println!("No playable feeds are available for this game.");
-        return None;
+impl ContentSearchResults {
+    fn select_feed(&self, media_type: MediaType, feed_type: FeedType) -> Option<&StreamData> {
+        self
+            .content
+            .iter()
+            .find(|stream| stream.feed_type == feed_type
+                && stream.media_state.media_type == media_type
+                && stream.media_state.state != "OFF")
     }
 
-    // Return stream matching user preferences if one available.
-    if let Some(pos) = active_streams.iter().position(|stream| {
-        stream.feed_type == feed_type && stream.media_state.media_type == media_type
-    }) {
-        println!("Feed matching user preferences found");
-        return Some(active_streams.swap_remove(pos));
-    }
+    fn find_best_feed(&self, media_type: MediaType, feed_type: FeedType) -> Option<&StreamData> {
+        // TODO: Do I want an enum to represent these various states? How best to handle logging?
+        let search_prefs = vec![
+            (media_type, feed_type),         // Exact match to user preferences.
+            (media_type, FeedType::Network), // Fallback to national broadcast if home/away feeds aren't available.
+            (MediaType::Audio, feed_type),   // Audio feeds typically available if video is blacked out.
+        ];
 
-    // If no matches, fall back to National broadcast. Most common cause of match failure is national-only broadcasts.
-    if let Some(pos) = active_streams.iter().position(|stream| {
-        stream.feed_type == "NETWORK" && // TODO: Find all codes for National broadcasts + make into enum.
-        stream.media_state.media_type == media_type
-    }) {
-        println!("{feed_type} broadcast not found. Defaulting to National feed.");
-        return Some(active_streams.swap_remove(pos));
-    }
+        for(m_type, f_type) in search_prefs {
+            if let Some(stream) = self.select_feed(m_type, f_type) {
+                println!("Selected feed: {f_type:?}, {m_type:?}");
+                return Some(stream)
+            }
+        }
 
-    // If user has selected audio-only they may be bandwitch constrained. Falling back to video inappropriate.
-    if media_type == "AUDIO" {
-        println!("Only video feeds are available for this game. User requested audio only.");
-        return None;
+        // Last resort: pick any active stream. TODO: Message if results empty.
+        self.content.iter().find(|stream| stream.media_state.state != "OFF")
     }
-
-    // If no matches and no National broadcast try audio feed. User may be blacked out from video but audio accessible.
-    if let Some(pos) = active_streams.iter().position(|stream| {
-        stream.feed_type == feed_type && stream.media_state.media_type == "AUDIO"
-    }) {
-        println!(
-            "No video feeds are available for this game. User may be blacked out. Defaulting to audio feed."
-        );
-        return Some(active_streams.swap_remove(pos));
-    }
-
-    // If none of the above conditions are met but there are somehow still active feeds remaining, just grab first one.
-    active_streams.into_iter().next()
 }
 
 fn find_in_path(command: &str) -> io::Result<PathBuf> {
+    // TODO: Do I need this here? I'm using anyhow everywhere else.
     let not_found_error = io::Error::new(
         io::ErrorKind::NotFound,
         format!("Command '{}' not found in PATH", command),
@@ -337,10 +341,7 @@ fn find_in_path(command: &str) -> io::Result<PathBuf> {
     }
 
     let stdout_str = String::from_utf8_lossy(&output.stdout);
-    let lines: Vec<_> = stdout_str
-        .lines()
-        .map(str::trim)
-        .collect();
+    let lines: Vec<_> = stdout_str.lines().map(str::trim).collect();
 
     let path = lines
         .iter()
@@ -374,57 +375,49 @@ pub fn resolve_media_player(media_player: &str) -> io::Result<(String, Vec<Strin
     }
 }
 
-fn play_stream(command: &str, args: Vec<String>) -> anyhow::Result<()> {
+fn play_stream(command: &str, args: Vec<String>) -> Result<()> {
     Command::new(command).args(args).spawn()?;
 
     Ok(())
 }
 
-// Currently requires authenticated session. Reauth has to happen before this is called. Is that what I want?
-pub async fn play_game_stream(
+pub async fn find_and_play_stream(
     session: &MlbSession<Authorized>,
     team: &str,
-    date_opt: &str,
-    media_type: &str,        // TODO: Make this a proper enum
-    feed_type: Option<&str>, // TODO: Make this a proper enum
+    date: &str,
+    media_type: MediaType,
+    feed_type: FeedType,
     game_number: Option<&u8>,
     // media_player: Option<MediaPlayer>,
-) -> anyhow::Result<()> {
+) -> Result<()> {
     // Get games for specified date. If none, end here.
-    let Some(schedule) = get_games_by_date(session, Some(date_opt)).await? else {
-        println!("No games scheduled for {:?}", date_opt);
+    let Some(schedule) = gamedata::get_games_by_date(session, date).await? else {
+        println!("No games scheduled for {:?}", date);
         return Ok(());
     };
 
     // If there are any games, is specified team playing? If not, end here.
-    let Some(team_games) = find_team_games(schedule, team)? else {
+    let Some(team_games) = gamedata::find_team_games(schedule, team)? else {
         println!("Looks like the {team} aren't playing today.");
         return Ok(());
     };
 
     // If there's a doubleheader, select which game to retrieve.
-    let game_data = select_doubleheader_game(team_games, game_number)?;
+    let game_data = gamedata::select_game(team_games, game_number)?;
     let game_pk = game_data.game_pk.to_string();
 
-    // If user specifies a feed type, use it. Else match to team.
-    let feed_type = feed_type.unwrap_or(if game_data.teams.home.team.name == team {
-        "HOME"
-    } else {
-        "AWAY"
-    });
-
     // Get available feeds for selected game_pk
-    let stream_data: Vec<StreamData> = get_available_feeds(session, &game_pk).await?;
+    let stream_data: ContentSearchResults = get_available_feeds(session, &game_pk).await?;
 
     // Select most appropriate feed given user preferences
-    let Some(stream_data) = select_game_feed(stream_data, media_type, feed_type) else {
+    let Some(stream_data) = stream_data.find_best_feed(media_type, feed_type) else {
         println!("No streams found that meet user criteria.");
         return Ok(());
     };
     let media_id = &stream_data.media_id;
 
     // Initialize a playback session containing stream URL.
-    let playback_session = init_playback_session(&session, media_id).await?;
+    let playback_session = init_playback_session(session, media_id).await?;
     println!("{:?}", playback_session.playback.url);
 
     let media_player = "mpv";
