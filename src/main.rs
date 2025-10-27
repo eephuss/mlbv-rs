@@ -20,7 +20,7 @@ async fn main() -> Result<()> {
         .await?;
 
     // TODO: Add cute messaging depending if there are no games during season (off-day) or offseason (see you next spring!)
-    streams::find_and_play_stream(&session, team, date, MediaType::Video, FeedType::Home, None).await?;
+    streams::find_and_play_stream(&session, team, date, MediaType::Video, FeedType::Away, None).await?;
 
     Ok(())
 }

@@ -390,34 +390,24 @@ pub async fn find_and_play_stream(
     game_number: Option<&u8>,
     // media_player: Option<MediaPlayer>,
 ) -> Result<()> {
-    // Get games for specified date. If none, end here.
-    let Some(schedule) = gamedata::get_games_by_date(session, date).await? else {
+    let Some(schedule) = session.get_games_by_date(date).await? else {
         println!("No games scheduled for {:?}", date);
         return Ok(());
     };
-
-    // If there are any games, is specified team playing? If not, end here.
-    let Some(team_games) = gamedata::find_team_games(schedule, team)? else {
+    let Some(team_games) = schedule.find_team_games(team) else {
         println!("Looks like the {team} aren't playing today.");
         return Ok(());
     };
-
-    // If there's a doubleheader, select which game to retrieve.
     let game_data = gamedata::select_game(team_games, game_number)?;
-    let game_pk = game_data.game_pk.to_string();
 
-    // Get available feeds for selected game_pk
-    let stream_data: ContentSearchResults = get_available_feeds(session, &game_pk).await?;
-
-    // Select most appropriate feed given user preferences
+    let stream_data = get_available_feeds(session, &game_data.game_pk.to_string()).await?;
     let Some(stream_data) = stream_data.find_best_feed(media_type, feed_type) else {
         println!("No streams found that meet user criteria.");
         return Ok(());
     };
-    let media_id = &stream_data.media_id;
 
     // Initialize a playback session containing stream URL.
-    let playback_session = init_playback_session(session, media_id).await?;
+    let playback_session = init_playback_session(session, &stream_data.media_id).await?;
     println!("{:?}", playback_session.playback.url);
 
     let media_player = "mpv";

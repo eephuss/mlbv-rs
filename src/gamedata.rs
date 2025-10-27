@@ -207,10 +207,6 @@ pub async fn get_games_by_date<State>(
     session: &MlbSession<State>,
     date: &str,
 ) -> Result<Option<DaySchedule>> {
-    // let date = match date_opt {
-    //     Some(s) => s.to_string(),
-    //     None => Utc::now().format("%Y-%m-%d").to_string(),
-    // };
     let hydrate = concat!(
         "hydrate=,",
         "broadcasts(all),",
@@ -248,21 +244,22 @@ impl<State> MlbSession<State> {
     }
 }
 
-pub fn find_team_games(schedule: DaySchedule, team: &str) -> Result<Option<Vec<GameData>>> {
-    let team_games: Vec<GameData> = schedule
-        .games
-        .into_iter()
-        .filter(|game| {
-            let home = &game.teams.home.team.name;
-            let away = &game.teams.away.team.name;
-            home == team || away == team
-        })
-        .collect();
+impl DaySchedule {
+    pub fn find_team_games(self, team: &str) -> Option<Vec<GameData>> {
+        let team_games: Vec<GameData> = self
+            .games
+            .into_iter()
+            .filter(|game| {
+                let home = &game.teams.home.team.name;
+                let away = &game.teams.away.team.name;
+                home == team || away == team
+            })
+            .collect();
 
-    match team_games.len() {
-        0 => Ok(None),                 // Your team isn't playing today.
-        1 | 2 => Ok(Some(team_games)), // Your team has a game or doubleheader today.
-        n => anyhow::bail!("Teams play a maximum of 2 games per day. Got {n}"),
+        match team_games.len() {
+            0 => None,             // Your team isn't playing today.
+            _ => Some(team_games), // Your team has a game or doubleheader today.
+        }
     }
 }
 
@@ -272,7 +269,7 @@ pub fn select_game(team_games: Vec<GameData>, game_number: Option<&u8>) -> Resul
             "I thought your team was playing today but there's no game data here. Aborting."
         ),
         1 => Ok(team_games.into_iter().next().unwrap()), // Not much to do if there's only 1 game that day.
-        2 => {
+        _ => {
             // If a valid game_number is specified, return that game.
             if let Some(n) = game_number {
                 if [1, 2].contains(n) {
@@ -293,8 +290,5 @@ pub fn select_game(team_games: Vec<GameData>, game_number: Option<&u8>) -> Resul
                 }
             }
         }
-        n => anyhow::bail!(
-            "The last MLB tripleheader was played in 1920. Your team probably isn't playing {n} games today. Likely API change."
-        ),
     }
 }
