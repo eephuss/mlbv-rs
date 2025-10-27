@@ -295,12 +295,11 @@ pub async fn init_playback_session(
 
 impl ContentSearchResults {
     fn select_feed(&self, media_type: MediaType, feed_type: FeedType) -> Option<&StreamData> {
-        self
-            .content
-            .iter()
-            .find(|stream| stream.feed_type == feed_type
+        self.content.iter().find(|stream| {
+            stream.feed_type == feed_type
                 && stream.media_state.media_type == media_type
-                && stream.media_state.state != "OFF")
+                && stream.media_state.state != "OFF"
+        })
     }
 
     fn find_best_feed(&self, media_type: MediaType, feed_type: FeedType) -> Option<&StreamData> {
@@ -308,18 +307,20 @@ impl ContentSearchResults {
         let search_prefs = vec![
             (media_type, feed_type),         // Exact match to user preferences.
             (media_type, FeedType::Network), // Fallback to national broadcast if home/away feeds aren't available.
-            (MediaType::Audio, feed_type),   // Audio feeds typically available if video is blacked out.
+            (MediaType::Audio, feed_type), // Audio feeds typically available if video is blacked out.
         ];
 
-        for(m_type, f_type) in search_prefs {
+        for (m_type, f_type) in search_prefs {
             if let Some(stream) = self.select_feed(m_type, f_type) {
                 println!("Selected feed: {f_type:?}, {m_type:?}");
-                return Some(stream)
+                return Some(stream);
             }
         }
 
         // Last resort: pick any active stream. TODO: Message if results empty.
-        self.content.iter().find(|stream| stream.media_state.state != "OFF")
+        self.content
+            .iter()
+            .find(|stream| stream.media_state.state != "OFF")
     }
 }
 
