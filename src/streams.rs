@@ -175,122 +175,121 @@ pub struct Playback {
     cdn: String,
 }
 
-// This query fetches the available feeds for a specified game_pk.
-pub async fn get_available_feeds(
-    session: &MlbSession<Authorized>,
-    game_pk: &str,
-) -> Result<ContentSearchResults> {
-    let access_token = &session.state.okta_tokens.access_token;
+impl MlbSession<Authorized> {
+    // This query fetches the available feeds for a specified game_pk.
+    pub async fn get_available_feeds(&self, game_pk: &u64) -> Result<ContentSearchResults> {
+        let access_token = &self.state.okta_tokens.access_token;
 
-    let variables_query = format!(
-        "GamePk={game_pk} \
-        AND ContentType=\"GAME\" \
-        RETURNING \
-        HomeTeamId, \
-        HomeTeamName, \
-        AwayTeamId, \
-        AwayTeamName, \
-        Date, \
-        MediaType, \
-        ContentExperience, \
-        MediaState, \
-        PartnerCallLetters"
-    );
+        let variables_query = format!(
+            "GamePk={game_pk} \
+            AND ContentType=\"GAME\" \
+            RETURNING \
+            HomeTeamId, \
+            HomeTeamName, \
+            AwayTeamId, \
+            AwayTeamName, \
+            Date, \
+            MediaType, \
+            ContentExperience, \
+            MediaState, \
+            PartnerCallLetters"
+        );
 
-    let req_body = serde_json::json!({
-        "operationName": "contentSearch",
-        "query": CONTENT_SEARCH_GQL,
-        "variables": {
-            "limit": 16,
-            "query": variables_query
-        }
-    });
+        let req_body = serde_json::json!({
+            "operationName": "contentSearch",
+            "query": CONTENT_SEARCH_GQL,
+            "variables": {
+                "limit": 16,
+                "query": variables_query
+            }
+        });
 
-    let res = session
-        .client
-        .post(MEDIA_GATEWAY_URL)
-        .header("Authorization", format!("Bearer {}", access_token))
-        .header("x-bamsdk-version", "3.4")
-        .header("x-bamsdk-platform", "macintosh")
-        .header("Origin", "https://www.mlb.com")
-        .header("Content-Type", "application/json")
-        .json(&req_body)
-        .send()
-        .await?;
+        let res = self
+            .client
+            .post(MEDIA_GATEWAY_URL)
+            .header("Authorization", format!("Bearer {}", access_token))
+            .header("x-bamsdk-version", "3.4")
+            .header("x-bamsdk-platform", "macintosh")
+            .header("Origin", "https://www.mlb.com")
+            .header("Content-Type", "application/json")
+            .json(&req_body)
+            .send()
+            .await?;
 
-    let res_body: ContentSearchResponse = res.json().await?;
+        let res_body: ContentSearchResponse = res.json().await?;
 
-    Ok(res_body.data.content_search)
-}
+        Ok(res_body.data.content_search)
+    }
 
-// Initializes a session and outputs the requisite IDs.
-async fn init_media_session(session: &MlbSession<Authorized>) -> Result<(String, String)> {
-    let access_token = &session.state.okta_tokens.access_token;
+    // Initializes a session and outputs the requisite IDs.
+    async fn init_media_session(&self) -> Result<(String, String)> {
+        let access_token = &self.state.okta_tokens.access_token;
 
-    let req_body = serde_json::json!({
-        "operationName": "initSession",
-        "query": INIT_SESSION_GQL,
-        "variables": {
-            "device": {},
-            "clientType": "WEB"
-        }
-    });
+        let req_body = serde_json::json!({
+            "operationName": "initSession",
+            "query": INIT_SESSION_GQL,
+            "variables": {
+                "device": {},
+                "clientType": "WEB"
+            }
+        });
 
-    let res = session
-        .client
-        .post(MEDIA_GATEWAY_URL)
-        .header("Authorization", format!("Bearer {}", access_token))
-        .header("x-bamsdk-version", "3.4")
-        .header("x-bamsdk-platform", "macintosh")
-        .header("Origin", "https://www.mlb.com")
-        .header("Content-Type", "application/json")
-        .json(&req_body)
-        .send()
-        .await?;
+        let res = self
+            .client
+            .post(MEDIA_GATEWAY_URL)
+            .header("Authorization", format!("Bearer {}", access_token))
+            .header("x-bamsdk-version", "3.4")
+            .header("x-bamsdk-platform", "macintosh")
+            .header("Origin", "https://www.mlb.com")
+            .header("Content-Type", "application/json")
+            .json(&req_body)
+            .send()
+            .await?;
 
-    let res_body: InitSessionResponse = res.json().await?;
+        let res_body: InitSessionResponse = res.json().await?;
 
-    let session_id = res_body.data.init_session.session_id;
-    let device_id = res_body.data.init_session.device_id;
+        let session_id = res_body.data.init_session.session_id;
+        let device_id = res_body.data.init_session.device_id;
 
-    Ok((session_id, device_id))
-}
+        Ok((session_id, device_id))
+    }
 
-// Use mediaID, sessionID and deviceID to initPlaybackSession and retrieve stream URI.
-pub async fn init_playback_session(
-    session: &MlbSession<Authorized>,
-    media_id: &str,
-) -> Result<InitPlaybackSessionResults> {
-    let access_token = &session.state.okta_tokens.access_token;
-    let (session_id, device_id) = init_media_session(session).await?;
+    // Use mediaID, sessionID and deviceID to initPlaybackSession and retrieve stream URI.
+    pub async fn init_playback_session(
+        &self,
+        media_id: &str,
+    ) -> Result<InitPlaybackSessionResults> {
+        let access_token = &self.state.okta_tokens.access_token;
+        let (session_id, device_id) = self.init_media_session().await?;
 
-    let req_body = serde_json::json!({
-        "operationName": "initPlaybackSession",
-        "query": INIT_PLAYBACK_SESSION_GQL,
-        "variables": {
-            "adCapabilities": ["GOOGLE_STANDALONE_AD_PODS"],
-            "deviceId": device_id.as_str(),
-            "mediaId": media_id,
-            "quality": "PLACEHOLDER",
-            "sessionId": session_id.as_str()
-        }
-    });
+        let req_body = serde_json::json!({
+            "operationName": "initPlaybackSession",
+            "query": INIT_PLAYBACK_SESSION_GQL,
+            "variables": {
+                "adCapabilities": ["GOOGLE_STANDALONE_AD_PODS"],
+                "deviceId": device_id.as_str(),
+                "mediaId": media_id,
+                "quality": "PLACEHOLDER",
+                "sessionId": session_id.as_str()
+            }
+        });
 
-    let res = session
-        .client
-        .post(MEDIA_GATEWAY_URL)
-        .header("Authorization", format!("Bearer {}", access_token))
-        .header("x-bamsdk-version", "3.4")
-        .header("x-bamsdk-platform", "macintosh")
-        .header("Origin", "https://www.mlb.com")
-        .header("Content-Type", "application/json")
-        .json(&req_body)
-        .send()
-        .await?;
+        let res = self
+            .client
+            .post(MEDIA_GATEWAY_URL)
+            .header("Authorization", format!("Bearer {}", access_token))
+            .header("x-bamsdk-version", "3.4")
+            .header("x-bamsdk-platform", "macintosh")
+            .header("Origin", "https://www.mlb.com")
+            .header("Content-Type", "application/json")
+            .json(&req_body)
+            .send()
+            .await?;
 
-    let res_body: InitPlaybackSessionResponse = res.json().await?;
+        let res_body: InitPlaybackSessionResponse = res.json().await?;
 
-    Ok(res_body.data.init_playback_session)
+        Ok(res_body.data.init_playback_session)
+    }
 }
 
 impl ContentSearchResults {
@@ -307,9 +306,10 @@ impl ContentSearchResults {
         let search_prefs = vec![
             (media_type, feed_type),         // Exact match to user preferences.
             (media_type, FeedType::Network), // Fallback to national broadcast if home/away feeds aren't available.
-            (MediaType::Audio, feed_type), // Audio feeds typically available if video is blacked out.
+            (MediaType::Audio, feed_type),   // Audio typically available if video is blacked out.
         ];
 
+        // Loop through search preferences in order and return the first matching stream.
         for (m_type, f_type) in search_prefs {
             if let Some(stream) = self.select_feed(m_type, f_type) {
                 println!("Selected feed: {f_type:?}, {m_type:?}");
@@ -391,28 +391,27 @@ pub async fn find_and_play_stream(
     game_number: Option<&u8>,
     // media_player: Option<MediaPlayer>,
 ) -> Result<()> {
-    let Some(schedule) = session.get_games_by_date(date).await? else {
-        println!("No games scheduled for {:?}", date);
-        return Ok(());
-    };
-    let Some(team_games) = schedule.find_team_games(team) else {
-        println!("Looks like the {team} aren't playing today.");
+    // Fetch schedule and filter for team games on specified date.
+    let Some(team_games) = session
+        .get_games_by_date(date)
+        .await?
+        .and_then(|s| s.find_team_games(team))
+    else {
+        println!("Looks like the {team} aren't playing on {date}.");
         return Ok(());
     };
     let game_data = gamedata::select_game(team_games, game_number)?;
 
-    let stream_data = get_available_feeds(session, &game_data.game_pk.to_string()).await?;
+    // Fetch available streams for selected game.
+    let stream_data = session.get_available_feeds(&game_data.game_pk).await?;
     let Some(stream_data) = stream_data.find_best_feed(media_type, feed_type) else {
         println!("No streams found that meet user criteria.");
         return Ok(());
     };
 
     // Initialize a playback session containing stream URL.
-    let playback_session = init_playback_session(session, &stream_data.media_id).await?;
-    println!("{:?}", playback_session.playback.url);
-
-    let media_player = "mpv";
-    let (command, mut args) = resolve_media_player(media_player)?;
+    let playback_session = session.init_playback_session(&stream_data.media_id).await?;
+    let (command, mut args) = resolve_media_player("mpv")?;
     args.push(playback_session.playback.url);
 
     // Send playback URL and other relevant info to media player.
