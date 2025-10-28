@@ -7,7 +7,7 @@ use std::path::PathBuf;
 
 #[derive(Debug, Deserialize)]
 pub struct AppConfig {
-    // pub debug: Option<bool>,
+    pub debug: bool,
     pub credentials: Credentials,
     // pub favorites: Option<Favorites>,
     // pub display: Option<Display>,
@@ -92,14 +92,14 @@ impl AppConfig {
 
         // ensure the config exists (creates from template if needed)
         if !config_file.exists() {
-            println!(
+            tracing::info!(
                 "Config file not found, creating from template at {}",
                 config_file.display()
             );
             Self::generate_config(&config_dir, &config_file)?;
         }
 
-        println!("Loading config from: {}", config_file.display());
+        tracing::debug!("Loading config from: {}", config_file.display());
 
         let contents = fs::read_to_string(&config_file)?;
         let parsed: AppConfig = toml::from_str(&contents)?;

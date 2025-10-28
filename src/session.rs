@@ -59,7 +59,7 @@ impl OktaAuthResponse {
 
         let json = serde_json::to_string_pretty(self)?;
         fs::write(&token_file, json).context("Failed to save token to file.")?;
-        println!("Saved okta auth token to {:?}", cache_dir);
+        tracing::debug!("Saved okta auth token to {:?}", cache_dir);
 
         Ok(())
     }
@@ -112,16 +112,18 @@ impl MlbSession<Unauthenticated> {
             }
         });
 
-        // TODO: Handle invalid authentication / bad credentials.
         let res = self
             .client
             .post("https://ids.mlb.com/api/v1/authn")
             .header("Content-Type", "application/json")
             .json(&req_body)
             .send()
-            .await?;
+            .await
+            .context("Failed to send authentication post request")?
+            .error_for_status()
+            .context("Authentication request returned unsuccessful status")?;
 
-        let authn = res.json().await?;
+        let authn = res.json().await.context("Failed to parse authentication response")?;
 
         Ok(MlbSession {
             client: self.client,
@@ -130,10 +132,8 @@ impl MlbSession<Unauthenticated> {
     }
 
     pub async fn authorize(self, username: &str, password: &str) -> Result<MlbSession<Authorized>> {
-        if let Some(cached_token) = OktaAuthResponse::load()?
-            && cached_token.is_valid()
-        {
-            println!("Loaded existing token from cache.");
+        if let Some(cached_token) = OktaAuthResponse::load()? && cached_token.is_valid() {
+            tracing::debug!("Successfully loaded existing token from cache.");
             return Ok(MlbSession {
                 client: self.client,
                 state: Authorized {
@@ -155,8 +155,16 @@ impl MlbSession<Unauthenticated> {
 
 impl MlbSession<Authenticated> {
     async fn fetch_client_id(&self) -> Result<String> {
-        let res = self.client.get(MLB_OKTA_URL).send().await?;
-        let res_body = res.text().await?;
+        let res = self
+            .client
+            .get(MLB_OKTA_URL)
+            .send()
+            .await
+            .context("Failed to send fetch clientID request")?
+            .error_for_status()
+            .context("ClientID fetch request returned unsuccessful status")?;
+
+        let res_body = res.text().await.context("Failed to parse clientID response")?;
 
         // Capture the value after production:{clientId:" and before the next "
         let re = Regex::new(r#"production:\{clientId:"([^"]+)","#)?;
@@ -191,9 +199,15 @@ impl MlbSession<Authenticated> {
                 ("sessionToken", self.state.authn.session_token.as_str()),
             ])
             .send()
-            .await?;
+            .await
+            .context("Failed to send okta code request")?
+            .error_for_status()
+            .context("Okta code fetch returned unsuccessful status")?;
 
-        let res_body = res.text_with_charset("utf-8").await?;
+        let res_body = res
+            .text_with_charset("utf-8")
+            .await
+            .context("Failed to parse okta code response")?;
 
         // look for a line like: data.code = 'an_okta_code_in_single_quotes';
         let re = Regex::new(r#"data\.code\s*=\s*'([^']+)'"#)?;
@@ -229,9 +243,12 @@ impl MlbSession<OktaCodeReceived> {
                 ("code", self.state.okta_code.as_str()),
             ])
             .send()
-            .await?;
+            .await
+            .context("Failed to send okta token request")?
+            .error_for_status()
+            .context("Okta token fetch returned unsuccessful status")?;
 
-        let res_body: OktaAuthResponse = res.json().await?;
+        let res_body: OktaAuthResponse = res.json().await.context("Failed to parse okta token response")?;
 
         Ok(MlbSession {
             client: self.client,

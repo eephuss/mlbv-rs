@@ -1,7 +1,7 @@
 #![allow(dead_code)] // Shush unused refernce warnings until I know what fields are needed
 
 use crate::session::MlbSession;
-use anyhow::Result;
+use anyhow::{Context, Result};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -203,7 +203,7 @@ struct Playback {
 }
 
 // TODO: Update to use start and end date logic.
-pub async fn get_games_by_date<State>(
+pub async fn fetch_games_by_date<State>(
     session: &MlbSession<State>,
     date: &str,
 ) -> Result<Option<DaySchedule>> {
@@ -227,20 +227,26 @@ pub async fn get_games_by_date<State>(
         .get(url)
         .header("Connection", "close")
         .send()
-        .await?;
+        .await
+        .context("Failed to send schedule request")?
+        .error_for_status()
+        .context("Schedule fetch returned unsuccessful status")?;
 
-    let body: ScheduleResponse = res.json().await?;
+    let body: ScheduleResponse = res.json().await.context("Failed to parse schedule response")?;
 
     match body.dates.len() {
-        0 => Ok(None), // If no games are scheduled, then no dates are returned.
+        0 => {
+            tracing::info!("Schedule returned no games for {date}.");
+            Ok(None) // If no games are scheduled, then no dates are returned.
+        }
         1 => Ok(Some(body.dates.into_iter().next().unwrap())),
         n => anyhow::bail!("Expected 1 date but got {n} - possible API change."),
     }
 }
 
 impl<State> MlbSession<State> {
-    pub async fn get_games_by_date(&self, date: &str) -> Result<Option<DaySchedule>> {
-        get_games_by_date(self, date).await
+    pub async fn fetch_games_by_date(&self, date: &str) -> Result<Option<DaySchedule>> {
+        fetch_games_by_date(self, date).await
     }
 }
 
@@ -257,7 +263,10 @@ impl DaySchedule {
             .collect();
 
         match team_games.len() {
-            0 => None,             // Your team isn't playing today.
+            0 => {
+                tracing::info!("No games found on the day's schedule for the {team}");
+                None
+            }
             _ => Some(team_games), // Your team has a game or doubleheader today.
         }
     }
@@ -265,27 +274,33 @@ impl DaySchedule {
 
 pub fn select_game(team_games: Vec<GameData>, game_number: Option<&u8>) -> Result<GameData> {
     match team_games.len() {
-        0 => anyhow::bail!(
-            "I thought your team was playing today but there's no game data here. Aborting."
-        ),
+        0 => anyhow::bail!("Got empty vector where at least 1 game was expected. Aborting."),
         1 => Ok(team_games.into_iter().next().unwrap()), // Not much to do if there's only 1 game that day.
         _ => {
             // If a valid game_number is specified, return that game.
             if let Some(n) = game_number {
                 if [1, 2].contains(n) {
+                    tracing::debug!("User requested game number {n}");
                     Ok(team_games.into_iter().nth((n - 1) as usize).unwrap())
                 } else {
-                    anyhow::bail!("Invalid game number.")
+                    tracing::warn!("User provided invalid game number: {n}");
+                    anyhow::bail!("Invalid game number")
                 }
             } else {
+                tracing::debug!("Doubleheader deteced but no game number specified");
+
                 // If no game number provided, prefer live game. If no live games, return game 1.
+                // TODO: This assumes that vector the vector is ordered chronologically.
+                //       May not be true. Can use game_number attribute of GameData if needed.
                 let mut iter = team_games.into_iter();
                 let game_one = iter.next().unwrap();
                 let game_two = iter.next().unwrap();
 
                 if game_two.status.abstract_game_state == "Live" {
+                    tracing::info!("Game 2 is currently live; defaulting to live broadcast");
                     Ok(game_two)
                 } else {
+                    tracing::info!("Defaulting to Game 1");
                     Ok(game_one)
                 }
             }
