@@ -123,7 +123,10 @@ impl MlbSession<Unauthenticated> {
             .error_for_status()
             .context("Authentication request returned unsuccessful status")?;
 
-        let authn = res.json().await.context("Failed to parse authentication response")?;
+        let authn = res
+            .json()
+            .await
+            .context("Failed to parse authentication response")?;
 
         Ok(MlbSession {
             client: self.client,
@@ -132,7 +135,9 @@ impl MlbSession<Unauthenticated> {
     }
 
     pub async fn authorize(self, username: &str, password: &str) -> Result<MlbSession<Authorized>> {
-        if let Some(cached_token) = OktaAuthResponse::load()? && cached_token.is_valid() {
+        if let Some(cached_token) = OktaAuthResponse::load()?
+            && cached_token.is_valid()
+        {
             tracing::debug!("Successfully loaded existing token from cache.");
             return Ok(MlbSession {
                 client: self.client,
@@ -164,7 +169,10 @@ impl MlbSession<Authenticated> {
             .error_for_status()
             .context("ClientID fetch request returned unsuccessful status")?;
 
-        let res_body = res.text().await.context("Failed to parse clientID response")?;
+        let res_body = res
+            .text()
+            .await
+            .context("Failed to parse clientID response")?;
 
         // Capture the value after production:{clientId:" and before the next "
         let re = Regex::new(r#"production:\{clientId:"([^"]+)","#)?;
@@ -248,7 +256,10 @@ impl MlbSession<OktaCodeReceived> {
             .error_for_status()
             .context("Okta token fetch returned unsuccessful status")?;
 
-        let res_body: OktaAuthResponse = res.json().await.context("Failed to parse okta token response")?;
+        let res_body: OktaAuthResponse = res
+            .json()
+            .await
+            .context("Failed to parse okta token response")?;
 
         Ok(MlbSession {
             client: self.client,
