@@ -7,6 +7,7 @@ use serde::Deserialize;
 use std::io;
 use std::path::PathBuf;
 use std::process::Command;
+use std::str::FromStr;
 
 const MEDIA_GATEWAY_URL: &str = "https://media-gateway.mlb.com/graphql";
 const CONTENT_SEARCH_GQL: &str = include_str!("queries/content_search.gql");
@@ -36,6 +37,19 @@ pub enum FeedType {
     Home,
     Away,
     Network,
+}
+
+impl FromStr for FeedType {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "home" => Ok(Self::Home),
+            "away" => Ok(Self::Away),
+            "national" => Ok(Self::Network),
+            _ => anyhow::bail!("Invalid feed type: {s}; expected 'home', 'away' or 'national'"),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -314,9 +328,9 @@ impl MlbSession<Authorized> {
         team: &str,
         date: &str,
         media_type: MediaType,
-        feed_type: FeedType,
-        game_number: Option<&u8>,
-        media_player: Option<&str>,
+        feed_type: Option<FeedType>,
+        game_number: Option<u8>,
+        media_player: Option<String>,
         // media_player: Option<MediaPlayer>,
     ) -> Result<()> {
         // Fetch schedule and filter for team games on specified date.
@@ -328,7 +342,16 @@ impl MlbSession<Authorized> {
             tracing::info!("No games found for the {team} on {date}");
             return Ok(());
         };
+
+        // Return a single game then match feed type to team's home/away status if not provided.
         let game_data = gamedata::select_game(team_games, game_number)?;
+        let feed_type = feed_type.unwrap_or_else(|| {
+            if game_data.teams.home.team.name == team {
+                FeedType::Home
+            } else {
+                FeedType::Away
+            }
+        });
 
         // Fetch available streams for selected game.
         let stream_data = self.fetch_available_feeds(&game_data.game_pk).await?;
@@ -360,9 +383,21 @@ impl ContentSearchResults {
 
     fn find_best_feed(&self, media_type: MediaType, feed_type: FeedType) -> Option<&StreamData> {
         let search_prefs = vec![
-            (media_type, feed_type, "Found feed matching user preferences"),
-            (media_type, FeedType::Network, "Home/away feed not found; falling back to national"),
-            (MediaType::Audio, feed_type, "Video feed not found; user may be blacked out; trying audio"),
+            (
+                media_type,
+                feed_type,
+                "Found feed matching user preferences",
+            ),
+            (
+                media_type,
+                FeedType::Network,
+                "Home/away feed not found; falling back to national",
+            ),
+            (
+                MediaType::Audio,
+                feed_type,
+                "Video feed not found; user may be blacked out; trying audio",
+            ),
         ];
 
         // Loop through search preferences in order and return the first matching stream.
@@ -402,15 +437,19 @@ fn find_in_path(command: &str) -> Result<PathBuf> {
         .iter()
         .find(|s| s.ends_with(".exe"))
         .or_else(|| lines.first())
-        .ok_or_else(|| anyhow::anyhow!("Found entries for '{}' but no valid executable", command))?;
+        .ok_or_else(|| {
+            anyhow::anyhow!("Found entries for '{}' but no valid executable", command)
+        })?;
 
     tracing::debug!("Found {command} at {path}");
     Ok(PathBuf::from(path))
 }
 
-pub fn resolve_media_player(media_player: Option<&str>) -> io::Result<(String, Vec<String>)> {
+pub fn resolve_media_player(media_player: Option<String>) -> io::Result<(String, Vec<String>)> {
     // Use specified player if found in PATH
-    if let Some(m_player) = media_player && let Ok(path) = find_in_path(m_player) {
+    if let Some(m_player) = media_player
+        && let Ok(path) = find_in_path(m_player.as_str())
+    {
         return Ok((path.to_string_lossy().into_owned(), Vec::new()));
     }
 
