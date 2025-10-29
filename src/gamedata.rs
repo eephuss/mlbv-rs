@@ -2,6 +2,7 @@
 
 use crate::session::MlbSession;
 use anyhow::{Context, Result};
+use chrono::{Datelike, NaiveDate};
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
@@ -9,6 +10,27 @@ struct ScheduleResponse {
     dates: Vec<DaySchedule>,
     #[serde(rename = "totalGames")]
     total_games: u32,
+}
+
+#[derive(Clone, Debug)]
+pub struct GameDate(pub NaiveDate);
+
+impl std::str::FromStr for GameDate {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        // Try to parse a few common date formats before giving up.
+        let formats = ["%Y-%m-%d", "%m-%d-%Y", "%m/%d/%Y"];
+        for fmt in formats {
+            if let Ok(date) = NaiveDate::parse_from_str(s, fmt) {
+                if date.year() < 2022 {
+                    anyhow::bail!("MLB.tv archives only go back to the start of 2022.");
+                }
+                return Ok(GameDate(date));
+            }
+        }
+        anyhow::bail!("Invalid date format: '{s}'; expected YYYY-MM-DD");
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -45,7 +67,7 @@ pub struct GameData {
     description: Option<String>,
     scheduled_innings: u8,
     reverse_home_away_status: bool,
-    inning_break_length: u8,
+    inning_break_length: Option<u8>,
     games_in_series: u8,
     series_game_number: u8,
     series_description: String,
@@ -205,7 +227,7 @@ struct Playback {
 // TODO: Update to use start and end date logic.
 pub async fn fetch_games_by_date<State>(
     session: &MlbSession<State>,
-    date: &str,
+    date: &NaiveDate,
 ) -> Result<Option<DaySchedule>> {
     let hydrate = concat!(
         "hydrate=,",
@@ -248,7 +270,7 @@ pub async fn fetch_games_by_date<State>(
 }
 
 impl<State> MlbSession<State> {
-    pub async fn fetch_games_by_date(&self, date: &str) -> Result<Option<DaySchedule>> {
+    pub async fn fetch_games_by_date(&self, date: &NaiveDate) -> Result<Option<DaySchedule>> {
         fetch_games_by_date(self, date).await
     }
 }

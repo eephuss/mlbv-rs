@@ -3,6 +3,7 @@
 use crate::gamedata;
 use crate::session::{Authorized, MlbSession};
 use anyhow::{Context, Result};
+use chrono::NaiveDate;
 use serde::Deserialize;
 use std::io;
 use std::path::PathBuf;
@@ -326,7 +327,7 @@ impl MlbSession<Authorized> {
     pub async fn find_and_play_stream(
         &self,
         team: &str,
-        date: &str,
+        date: NaiveDate,
         media_type: MediaType,
         feed_type: Option<FeedType>,
         game_number: Option<u8>,
@@ -335,7 +336,7 @@ impl MlbSession<Authorized> {
     ) -> Result<()> {
         // Fetch schedule and filter for team games on specified date.
         let Some(team_games) = self
-            .fetch_games_by_date(date)
+            .fetch_games_by_date(&date)
             .await?
             .and_then(|s| s.find_team_games(team))
         else {

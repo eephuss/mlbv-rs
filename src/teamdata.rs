@@ -1,5 +1,3 @@
-// #![allow(dead_code)] // Shush unused refernce warnings until I know what fields are needed
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum League {
     American,

@@ -11,7 +11,7 @@ use crate::session::MlbSession;
 use crate::streams::MediaType;
 use crate::teamdata::Team;
 use anyhow::Result;
-use chrono::Utc;
+use chrono::{Local, Duration};
 use clap::Parser;
 
 fn main() -> Result<()> {
@@ -41,10 +41,14 @@ async fn run() -> Result<()> {
     let cli = Cli::parse();
 
     // Use user-provided date. If none, return today's date.
-    // TODO: Handle invalid date inputs and conflicts with today and tomorrow flags.
-    let date = match cli.date {
-        Some(s) => s.to_string(),
-        None => Utc::now().format("%Y-%m-%d").to_string(),
+    let date = if let Some(game_date) = cli.date {
+        game_date.0
+    } else if cli.yesterday {
+        Local::now().date_naive() - Duration::days(1)
+    } else if cli.tomorrow {
+        Local::now().date_naive() + Duration::days(1)
+    } else {
+        Local::now().date_naive()
     };
 
     // Assume users want video broadcast unless they opt out
@@ -53,15 +57,6 @@ async fn run() -> Result<()> {
     } else {
         MediaType::Video
     };
-
-    // If user specifies a feed type, use it. Else match to team.
-    let feed_type = cli.feed;
-
-    // Get game-number if provided
-    let game_number = cli.game_number;
-
-    // Get media_player from config
-    let media_player = cfg.stream.video_player;
 
     // If user specified a team, then play
     if let Some(team_code) = cli.team {
@@ -75,11 +70,11 @@ async fn run() -> Result<()> {
             .await?
             .find_and_play_stream(
                 team_name,
-                &date,
+                date,
                 media_type,
-                feed_type,
-                game_number,
-                media_player,
+                cli.feed,
+                cli.game_number,
+                cfg.stream.video_player,
             )
             .await?
     } else {

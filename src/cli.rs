@@ -1,5 +1,6 @@
 use clap::Parser;
 
+use crate::gamedata::GameDate;
 use crate::streams::FeedType;
 use crate::teamdata::TeamCode;
 
@@ -13,14 +14,22 @@ pub struct Cli {
 
     /// Date to use (defaults to current date)
     #[arg(short, long)]
-    pub date: Option<String>,
+    pub date: Option<GameDate>,
+
+    /// Shortcut: fetch tomorrow's games
+    #[arg(long, conflicts_with = "date", conflicts_with = "yesterday")]
+    pub tomorrow: bool,
+
+    /// Shortcut: fetch yesterday's games
+    #[arg(long, conflicts_with = "date", conflicts_with = "tomorrow")]
+    pub yesterday: bool,
 
     /// Preferred feed to return (home, away, national)
     #[arg(short, long)]
     pub feed: Option<FeedType>,
 
     /// Return audio broadcasts only
-    #[arg(short, long)]
+    #[arg(long)]
     pub audio: bool,
 
     /// Specify game number 1 or 2 for double-headers
