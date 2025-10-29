@@ -232,7 +232,10 @@ pub async fn fetch_games_by_date<State>(
         .error_for_status()
         .context("Schedule fetch returned unsuccessful status")?;
 
-    let body: ScheduleResponse = res.json().await.context("Failed to parse schedule response")?;
+    let body: ScheduleResponse = res
+        .json()
+        .await
+        .context("Failed to parse schedule response")?;
 
     match body.dates.len() {
         0 => {
@@ -272,14 +275,14 @@ impl DaySchedule {
     }
 }
 
-pub fn select_game(team_games: Vec<GameData>, game_number: Option<&u8>) -> Result<GameData> {
+pub fn select_game(team_games: Vec<GameData>, game_number: Option<u8>) -> Result<GameData> {
     match team_games.len() {
         0 => anyhow::bail!("Got empty vector where at least 1 game was expected. Aborting."),
         1 => Ok(team_games.into_iter().next().unwrap()), // Not much to do if there's only 1 game that day.
         _ => {
             // If a valid game_number is specified, return that game.
             if let Some(n) = game_number {
-                if [1, 2].contains(n) {
+                if [1, 2].contains(&n) {
                     tracing::debug!("User requested game number {n}");
                     Ok(team_games.into_iter().nth((n - 1) as usize).unwrap())
                 } else {
