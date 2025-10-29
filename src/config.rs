@@ -11,7 +11,7 @@ pub struct AppConfig {
     pub credentials: Credentials,
     // pub favorites: Option<Favorites>,
     // pub display: Option<Display>,
-    // pub stream: Option<Stream>,
+    pub stream: Stream,
     // pub streamlink: Option<Streamlink>,
 }
 
@@ -30,12 +30,12 @@ pub struct AppConfig {
 //     pub stats_limit: Option<u32>,
 // }
 
-// #[derive(Debug, Deserialize)]
-// pub struct Stream {
-//     pub resolution: Option<String>,
-//     pub video_player: Option<String>,
-//     // add other stream fields as needed
-// }
+#[derive(Debug, Deserialize)]
+pub struct Stream {
+    // pub resolution: Option<String>,
+    pub video_player: Option<String>,
+    // add other stream fields as needed
+}
 
 // #[derive(Debug, Deserialize)]
 // pub struct Streamlink {
