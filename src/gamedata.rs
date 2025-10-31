@@ -2,8 +2,13 @@
 
 use crate::session::MlbSession;
 use anyhow::{Context, Result};
-use chrono::{Datelike, NaiveDate};
+use chrono::{DateTime, Datelike, Local, NaiveDate};
 use serde::Deserialize;
+use tabled::{
+    Table, Tabled,
+    settings::{Alignment, Modify, Style, object::Columns, style::HorizontalLine},
+};
+use tracing_subscriber::fmt::format;
 
 #[derive(Debug, Deserialize)]
 struct ScheduleResponse {
@@ -35,7 +40,7 @@ impl std::str::FromStr for GameDate {
 
 #[derive(Debug, Deserialize)]
 pub struct DaySchedule {
-    date: String,
+    date: NaiveDate,
     games: Vec<GameData>,
 }
 
@@ -51,6 +56,7 @@ pub struct GameData {
     official_date: String,
     status: GameStatus,
     pub teams: Matchup,
+    pub linescore: Linescore,
     venue: GameVenue,
     broadcasts: Vec<Broadcast>,
     pub content: Content,
@@ -116,6 +122,40 @@ pub struct Team {
     pub id: u8,
     pub name: String,
     pub link: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Linescore {
+    pub current_inning: Option<u8>,
+    pub current_inning_ordinal: Option<String>,
+    pub inning_state: Option<String>,
+    pub inning_half: Option<String>,
+    pub is_top_inning: Option<bool>,
+    pub scheduled_innings: u8,
+    // pub innings: Inning,
+    pub teams: ScoreTeams,
+    // pub defense: Defense,
+    // pub offense: Offense,
+    pub balls: Option<u8>,
+    pub strikes: Option<u8>,
+    pub outs: Option<u8>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ScoreTeams {
+    home: Score,
+    away: Score,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Score {
+    runs: Option<u8>,
+    hits: Option<u8>,
+    errors: Option<u8>,
+    left_on_base: Option<u8>,
+    is_winner: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -224,6 +264,22 @@ struct Playback {
     height: String,
 }
 
+#[derive(Tabled)]
+struct GameRow {
+    #[tabled(rename = "Time")]
+    time: String,
+    #[tabled(rename = "Matchup")]
+    matchup: String,
+    #[tabled(rename = "Series")]
+    series: String,
+    #[tabled(rename = "Score")]
+    score: String,
+    #[tabled(rename = "State")]
+    state: String,
+    #[tabled(rename = "Feeds")]
+    feeds: String,
+}
+
 // TODO: Update to use start and end date logic.
 pub async fn fetch_games_by_date<State>(
     session: &MlbSession<State>,
@@ -294,6 +350,77 @@ impl DaySchedule {
             }
             _ => Some(team_games), // Your team has a game or doubleheader today.
         }
+    }
+
+    pub fn display_game_data(&self) {
+        let weekday = self.date.format("%A");
+        let header_date = format!("{} {}", self.date, weekday);
+
+        let mut rows = Vec::new();
+
+        for game in &self.games {
+            let time = DateTime::parse_from_rfc3339(&game.game_date)
+                .map(|dt| {
+                    dt.with_timezone(&Local)
+                        .format("%I:%M %p")
+                        .to_string()
+                        .to_lowercase()
+                })
+                .unwrap_or_else(|_| "TBD".to_string());
+
+            let away_team = &game.teams.away.team.name;
+            let home_team = &game.teams.home.team.name;
+            let matchup = format!("{} at {}", away_team, home_team);
+
+            let games_in_series = &game.games_in_series;
+            let series_game_number = &game.series_game_number;
+            let series = format!("{series_game_number}/{games_in_series}");
+
+            let away_score = &game.linescore.teams.away.runs.unwrap_or(0);
+            let home_score = &game.linescore.teams.home.runs.unwrap_or(0);
+            let score = format!("{away_score}-{home_score}");
+
+            let state = String::from(&game.status.abstract_game_state);
+
+            let feeds = {
+                let mut feeds: Vec<&str> = game
+                    .broadcasts
+                    .iter()
+                    .filter(|feed| feed.kind == "TV")
+                    .filter(|feed| feed.available_for_streaming)
+                    .map(|feed| match feed.is_national {
+                        true => "national",
+                        false => &feed.home_away,
+                    })
+                    .collect();
+                feeds.sort();
+                feeds.join(", ")
+            };
+
+            rows.push(GameRow {
+                time,
+                matchup,
+                series,
+                score,
+                state,
+                feeds,
+            });
+        }
+
+
+        let table_style = Style::modern()
+            .horizontals([(1, HorizontalLine::inherit(Style::modern()))])
+            .remove_horizontal()
+            .remove_frame();
+        
+        let mut table = Table::new(rows);
+        table
+            .with(table_style)
+            // .modify(Columns::first(), Alignment::right())
+            .modify(Columns::one(4), Alignment::right());
+
+        println!("{header_date}");
+        println!("{}", table);
     }
 }
 

@@ -13,7 +13,7 @@ pub struct Cli {
     pub team: Option<TeamCode>,
 
     /// Date to use (defaults to current date)
-    #[arg(short, long)]
+    #[arg(short, long, conflicts_with = "yesterday", conflicts_with = "tomorrow")]
     pub date: Option<GameDate>,
 
     /// Shortcut: fetch tomorrow's games

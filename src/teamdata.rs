@@ -88,7 +88,7 @@ impl std::str::FromStr for TeamCode {
             "TOR" => Ok(Self::TOR),
             "WSH" => Ok(Self::WSH),
             "OAK" => anyhow::bail!("The OAK code has been retired and replaced with ATH"),
-            _ => anyhow::bail!("Invalid team code: {s}")
+            _ => anyhow::bail!("Invalid team code: {s}"),
         }
     }
 }

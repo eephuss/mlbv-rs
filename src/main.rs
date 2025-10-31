@@ -11,7 +11,7 @@ use crate::session::MlbSession;
 use crate::streams::MediaType;
 use crate::teamdata::Team;
 use anyhow::Result;
-use chrono::{Local, Duration};
+use chrono::{Duration, Local};
 use clap::Parser;
 
 fn main() -> Result<()> {
@@ -42,7 +42,7 @@ async fn run() -> Result<()> {
 
     // Use user-provided date. If none, return today's date.
     let date = if let Some(game_date) = cli.date {
-        game_date.0
+        game_date.0 // 0 extracts NaiveDate from GameDate
     } else if cli.yesterday {
         Local::now().date_naive() - Duration::days(1)
     } else if cli.tomorrow {
@@ -78,10 +78,12 @@ async fn run() -> Result<()> {
             )
             .await?
     } else {
-        let schedule = session.fetch_games_by_date(&date).await?;
-
-        println!("{:#?}", schedule)
+        if let Some(schedule) = session.fetch_games_by_date(&date).await? {
+            schedule.display_game_data();
+        } else {
+            // TODO: Detect when in off-season and add cute "see you next spring!" message.
+            println!("No games scheduled for {date}");
+        }
     }
-
     Ok(())
 }
