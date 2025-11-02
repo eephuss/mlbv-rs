@@ -1,6 +1,7 @@
 #![allow(dead_code)] // Shush unused refernce warnings until I know what fields are needed
 
 use crate::session::MlbSession;
+use crate::teamdata::Team;
 use anyhow::{Context, Result};
 use chrono::{DateTime, Datelike, Local, NaiveDate};
 use serde::Deserialize;
@@ -102,23 +103,23 @@ struct GameVenue {
 
 #[derive(Debug, Deserialize)]
 pub struct Matchup {
-    pub home: TeamStats,
-    pub away: TeamStats,
+    pub home: GameTeamStats,
+    pub away: GameTeamStats,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct TeamStats {
+pub struct GameTeamStats {
     pub score: Option<u8>,
-    pub team: Team,
+    pub team: GameTeam,
     pub is_winner: Option<bool>,
     pub split_squad: bool,
     pub series_number: u8,
 }
 
 #[derive(Debug, Deserialize)]
-pub struct Team {
-    pub id: u8,
+pub struct GameTeam {
+    pub id: u32,
     pub name: String,
     pub link: String,
 }
@@ -331,22 +332,19 @@ impl<State> MlbSession<State> {
 }
 
 impl DaySchedule {
-    pub fn find_team_games(self, team: &str) -> Option<Vec<GameData>> {
+    pub fn find_team_games(self, team: &Team) -> Option<Vec<GameData>> {
         let team_games: Vec<GameData> = self
             .games
             .into_iter()
             .filter(|game| {
                 let home = &game.teams.home.team.name;
                 let away = &game.teams.away.team.name;
-                home == team || away == team
+                home == team.name || away == team.name
             })
             .collect();
 
         match team_games.len() {
-            0 => {
-                tracing::info!("No games found on the day's schedule for the {team}");
-                None
-            }
+            0 => None,
             _ => Some(team_games), // Your team has a game or doubleheader today.
         }
     }

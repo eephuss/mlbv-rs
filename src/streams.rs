@@ -2,6 +2,7 @@
 
 use crate::gamedata;
 use crate::session::{Authorized, MlbSession};
+use crate::teamdata::Team;
 use anyhow::{Context, Result};
 use chrono::NaiveDate;
 use serde::Deserialize;
@@ -326,7 +327,8 @@ impl MlbSession<Authorized> {
 
     pub async fn find_and_play_stream(
         &self,
-        team: &str,
+        team: &Team,
+        // team: &str,
         date: NaiveDate,
         media_type: MediaType,
         feed_type: Option<FeedType>,
@@ -340,19 +342,19 @@ impl MlbSession<Authorized> {
             .await?
             .and_then(|s| s.find_team_games(team))
         else {
-            tracing::info!("No games found for the {team} on {date}");
+            tracing::info!("No games found for the {} on {}", team.name, date);
             return Ok(());
         };
 
         // Return a single game then match feed type to team's home/away status if not provided.
         let game_data = gamedata::select_game(team_games, game_number)?;
-        let feed_type = feed_type.unwrap_or_else(|| {
-            if game_data.teams.home.team.name == team {
+        let Some(feed_type) = feed_type else {
+            if game_data.teams.home.team.name == team.name {
                 FeedType::Home
             } else {
                 FeedType::Away
             }
-        });
+        };
 
         // Fetch available streams for selected game.
         let stream_data = self.fetch_available_feeds(&game_data.game_pk).await?;

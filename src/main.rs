@@ -58,16 +58,15 @@ async fn run() -> Result<()> {
 
     // If user specified a team, then look for stream to play
     if let Some(team_code) = cli.team {
-        let team_name = match Team::find_by_code(team_code) {
-            Some(team) => team.name,
-            None => anyhow::bail!("Invalid team code."),
+        let Some(team) = Team::find_by_code(team_code) else {
+            anyhow::bail!("Invalid team code.")
         };
 
         session
             .authorize(&cfg.credentials.username, &cfg.credentials.password)
             .await?
             .find_and_play_stream(
-                team_name,
+                team,
                 date,
                 media_type,
                 cli.feed,
