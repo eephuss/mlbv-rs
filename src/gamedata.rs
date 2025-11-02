@@ -6,9 +6,8 @@ use chrono::{DateTime, Datelike, Local, NaiveDate};
 use serde::Deserialize;
 use tabled::{
     Table, Tabled,
-    settings::{Alignment, Modify, Style, object::Columns, style::HorizontalLine},
+    settings::{Alignment, Style, object::Columns, style::HorizontalLine},
 };
-use tracing_subscriber::fmt::format;
 
 #[derive(Debug, Deserialize)]
 struct ScheduleResponse {
@@ -407,12 +406,11 @@ impl DaySchedule {
             });
         }
 
-
         let table_style = Style::modern()
             .horizontals([(1, HorizontalLine::inherit(Style::modern()))])
             .remove_horizontal()
             .remove_frame();
-        
+
         let mut table = Table::new(rows);
         table
             .with(table_style)

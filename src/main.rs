@@ -26,10 +26,9 @@ fn main() -> Result<()> {
 #[tokio::main]
 async fn run() -> Result<()> {
     let cfg = AppConfig::load()?;
-    let log_level = if cfg.debug {
-        tracing::Level::DEBUG
-    } else {
-        tracing::Level::INFO
+    let log_level = match cfg.debug {
+        true => tracing::Level::DEBUG,
+        false => tracing::Level::INFO,
     };
     tracing_subscriber::fmt()
         .with_max_level(log_level)
@@ -40,7 +39,7 @@ async fn run() -> Result<()> {
     let session = MlbSession::new()?;
     let cli = Cli::parse();
 
-    // Use user-provided date. If none, return today's date.
+    // Use user-provided date. If none, return today's date
     let date = if let Some(game_date) = cli.date {
         game_date.0 // 0 extracts NaiveDate from GameDate
     } else if cli.yesterday {
@@ -52,13 +51,12 @@ async fn run() -> Result<()> {
     };
 
     // Assume users want video broadcast unless they opt out
-    let media_type = if cli.audio {
-        MediaType::Audio
-    } else {
-        MediaType::Video
+    let media_type = match cli.audio {
+        true => MediaType::Audio,
+        false => MediaType::Video,
     };
 
-    // If user specified a team, then play
+    // If user specified a team, then look for stream to play
     if let Some(team_code) = cli.team {
         let team_name = match Team::find_by_code(team_code) {
             Some(team) => team.name,
@@ -77,13 +75,12 @@ async fn run() -> Result<()> {
                 cfg.stream.video_player,
             )
             .await?
+    } else if let Some(schedule) = session.fetch_games_by_date(&date).await? {
+        schedule.display_game_data();
     } else {
-        if let Some(schedule) = session.fetch_games_by_date(&date).await? {
-            schedule.display_game_data();
-        } else {
-            // TODO: Detect when in off-season and add cute "see you next spring!" message.
-            println!("No games scheduled for {date}");
-        }
+        // TODO: Detect when in off-season and add cute "see you next spring!" message.
+        println!("No games scheduled for {date}");
     }
+
     Ok(())
 }
