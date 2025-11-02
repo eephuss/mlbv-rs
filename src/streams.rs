@@ -348,13 +348,13 @@ impl MlbSession<Authorized> {
 
         // Return a single game then match feed type to team's home/away status if not provided.
         let game_data = gamedata::select_game(team_games, game_number)?;
-        let Some(feed_type) = feed_type else {
+        let feed_type = feed_type.unwrap_or_else(|| {
             if game_data.teams.home.team.name == team.name {
                 FeedType::Home
             } else {
                 FeedType::Away
             }
-        };
+        });
 
         // Fetch available streams for selected game.
         let stream_data = self.fetch_available_feeds(&game_data.game_pk).await?;
