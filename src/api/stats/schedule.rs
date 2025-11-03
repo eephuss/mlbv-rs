@@ -1,4 +1,4 @@
-use crate::{api::session::MlbSession, cli};
+use crate::api::session::MlbSession;
 use crate::cli::display::{self, GameRow};
 use crate::data::teamdata::Team;
 use anyhow::{Context, Result};
