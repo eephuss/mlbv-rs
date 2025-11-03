@@ -1,7 +1,7 @@
 use clap::Parser;
 
-use crate::api::stats::schedule::GameDate;
 use crate::api::mediagateway::streams::FeedType;
+use crate::api::stats::schedule::GameDate;
 use crate::data::teamdata::TeamCode;
 
 /// MLBV - Command-line utility for MLB.tv and stats API

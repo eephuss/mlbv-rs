@@ -1,7 +1,7 @@
 #![allow(dead_code)] // Shush unused refernce warnings until I know what fields are needed
 
-use crate::api::stats::schedule;
 use crate::api::session::{Authorized, MlbSession};
+use crate::api::stats::schedule;
 use crate::data::teamdata::Team;
 use crate::player;
 use anyhow::{Context, Result};

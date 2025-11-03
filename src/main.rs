@@ -4,10 +4,10 @@ mod config;
 mod data;
 mod player;
 
+use crate::api::mediagateway::streams::MediaType;
+use crate::api::session::MlbSession;
 use crate::cli::Cli;
 use crate::config::AppConfig;
-use crate::api::session::MlbSession;
-use crate::api::mediagateway::streams::MediaType;
 use crate::data::teamdata::Team;
 use anyhow::Result;
 use chrono::{Duration, Local};

@@ -59,13 +59,11 @@ pub fn play_stream_url(url: String, media_player: Option<String>) -> anyhow::Res
     let (command, mut args) = resolve_media_player(media_player)?;
     args.push(url);
 
-    let mut child = Command::new(command)
-        .args(args)
-        .spawn()?;
+    let mut child = Command::new(command).args(args).spawn()?;
 
     let status = child.wait()?;
     match status.success() {
         true => Ok(()),
-        false => anyhow::bail!("Media player exited with status: {}", status)
+        false => anyhow::bail!("Media player exited with status: {}", status),
     }
 }
