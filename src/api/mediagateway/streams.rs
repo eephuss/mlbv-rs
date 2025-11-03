@@ -33,6 +33,7 @@ pub struct ContentSearchResults {
 pub struct StreamData {
     pub media_id: String,
     feed_type: FeedType,
+    language: String,
     media_state: MediaState,
 }
 
@@ -295,6 +296,7 @@ impl ContentSearchResults {
             stream.feed_type == feed_type
                 && stream.media_state.media_type == media_type
                 && stream.media_state.state != "OFF"
+                && stream.language == "en" // TODO: Make language preference configurable.
         })
     }
 

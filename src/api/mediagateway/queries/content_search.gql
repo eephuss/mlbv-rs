@@ -18,6 +18,7 @@ query contentSearch($query: String!, $limit: Int = 10, $skip: Int = 0) {
       }
       sportId
       feedType
+      language
       callSign
       mediaState {
         state
