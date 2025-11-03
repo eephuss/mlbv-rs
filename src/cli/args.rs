@@ -6,15 +6,13 @@ use crate::data::teamdata::TeamCode;
 
 /// MLBV - Command-line utility for MLB.tv and stats API
 #[derive(Parser, Debug)]
-#[command(
-    author,
-    version,
-    about,
-    long_about = None,
-    group = ArgGroup::new("date_group")
-        .args(&["date", "days", "tomorrow", "yesterday"])
+#[command(author, version, about, long_about = None,)]
+#[command(group(
+    ArgGroup::new("date_group")
+        .args(["date", "days", "tomorrow", "yesterday"])
         .multiple(false)
-)]
+        .required(false)
+))]
 pub struct Cli {
     /// Re-initializes application config file
     #[arg(long)]
