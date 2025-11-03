@@ -63,10 +63,12 @@ impl AppConfig {
         Ok(input.trim().to_string())
     }
 
-    fn generate_config(config_dir: &PathBuf, config_file: &PathBuf) -> Result<()> {
+    pub fn generate_config() -> Result<()> {
+        let config_dir = project_dirs().config_dir().to_path_buf();
+        let config_file = config_dir.join("config.toml");
         fs::create_dir_all(config_dir)?;
 
-        let template_path = PathBuf::from("config_template.toml");
+        let template_path = PathBuf::from("src/config/template.toml");
         if !template_path.exists() {
             anyhow::bail!("Template file not found at {}", template_path.display());
         }
@@ -96,7 +98,7 @@ impl AppConfig {
                 "Config file not found, creating from template at {}",
                 config_file.display()
             );
-            Self::generate_config(&config_dir, &config_file)?;
+            Self::generate_config()?;
         }
 
         tracing::debug!("Loading config from: {}", config_file.display());

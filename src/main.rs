@@ -24,6 +24,10 @@ fn main() -> Result<()> {
 
 #[tokio::main]
 async fn run() -> Result<()> {
+    let cli = Cli::parse();
+    if cli.init {
+        AppConfig::generate_config()?
+    };
     let cfg = AppConfig::load()?;
     let log_level = match cfg.debug {
         true => tracing::Level::DEBUG,
@@ -36,7 +40,6 @@ async fn run() -> Result<()> {
         .init();
 
     let session = MlbSession::new()?;
-    let cli = Cli::parse();
 
     // Use user-provided date. If none, return today's date
     let date = if let Some(game_date) = cli.date {

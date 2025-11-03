@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::{ArgGroup, Parser};
 
 use crate::api::mediagateway::streams::FeedType;
 use crate::api::stats::schedule::GameDate;
@@ -6,23 +6,38 @@ use crate::data::teamdata::TeamCode;
 
 /// MLBV - Command-line utility for MLB.tv and stats API
 #[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
+#[command(
+    author,
+    version,
+    about,
+    long_about = None,
+    group = ArgGroup::new("date_group")
+        .args(&["date", "days", "tomorrow", "yesterday"])
+        .multiple(false)
+)]
 pub struct Cli {
+    /// Re-initializes application config file
+    #[arg(long)]
+    pub init: bool,
+
     /// Team code (3-letter, e.g. wsh, nym, bos)
     #[arg(short, long)]
     pub team: Option<TeamCode>,
 
     /// Date to use (defaults to current date)
-    #[arg(short, long, conflicts_with = "yesterday", conflicts_with = "tomorrow")]
+    #[arg(short, long)]
     pub date: Option<GameDate>,
 
     /// Shortcut: fetch tomorrow's games
-    #[arg(long, conflicts_with = "date", conflicts_with = "yesterday")]
+    #[arg(long)]
     pub tomorrow: bool,
 
     /// Shortcut: fetch yesterday's games
-    #[arg(long, conflicts_with = "date", conflicts_with = "tomorrow")]
+    #[arg(long)]
     pub yesterday: bool,
+
+    #[arg(long)]
+    pub days: Option<i64>,
 
     /// Preferred feed to return (home, away, national)
     #[arg(short, long)]

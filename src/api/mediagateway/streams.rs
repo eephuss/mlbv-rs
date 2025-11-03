@@ -296,7 +296,7 @@ impl ContentSearchResults {
             stream.feed_type == feed_type
                 && stream.media_state.media_type == media_type
                 && stream.media_state.state != "OFF"
-                && stream.language == "en" // TODO: Make language preference configurable.
+                && stream.language == "en" // TODO: Make language preference configurable. es + fr
         })
     }
 
