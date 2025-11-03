@@ -12,6 +12,7 @@ pub enum DivisionRegion {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)] // Hush warnings until these are used.
 pub struct Division {
     pub name: DivisionRegion,
     pub league: League,
@@ -94,6 +95,7 @@ impl std::str::FromStr for TeamCode {
 }
 
 #[derive(Copy, Clone, Debug)]
+#[allow(dead_code)] // Hush warnings until these are used.
 pub struct Team {
     pub id: u32,
     pub code: TeamCode,
