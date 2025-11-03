@@ -1,6 +1,6 @@
 use clap::Parser;
 
-use crate::api::stats::gamedata::GameDate;
+use crate::api::stats::schedule::GameDate;
 use crate::api::mediagateway::streams::FeedType;
 use crate::data::teamdata::TeamCode;
 

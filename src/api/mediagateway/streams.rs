@@ -1,14 +1,12 @@
 #![allow(dead_code)] // Shush unused refernce warnings until I know what fields are needed
 
-use crate::api::stats::gamedata;
+use crate::api::stats::schedule;
 use crate::api::session::{Authorized, MlbSession};
 use crate::data::teamdata::Team;
+use crate::player;
 use anyhow::{Context, Result};
 use chrono::NaiveDate;
 use serde::Deserialize;
-use std::io;
-use std::path::PathBuf;
-use std::process::Command;
 use std::str::FromStr;
 
 const MEDIA_GATEWAY_URL: &str = "https://media-gateway.mlb.com/graphql";
@@ -328,13 +326,11 @@ impl MlbSession<Authorized> {
     pub async fn find_and_play_stream(
         &self,
         team: &Team,
-        // team: &str,
         date: NaiveDate,
         media_type: MediaType,
         feed_type: Option<FeedType>,
         game_number: Option<u8>,
         media_player: Option<String>,
-        // media_player: Option<MediaPlayer>,
     ) -> Result<()> {
         // Fetch schedule and filter for team games on specified date.
         let Some(team_games) = self
@@ -347,7 +343,7 @@ impl MlbSession<Authorized> {
         };
 
         // Return a single game then match feed type to team's home/away status if not provided.
-        let game_data = gamedata::select_game(team_games, game_number)?;
+        let game_data = schedule::select_game(team_games, game_number)?;
         let feed_type = feed_type.unwrap_or_else(|| {
             if game_data.teams.home.team.name == team.name {
                 FeedType::Home
@@ -365,11 +361,7 @@ impl MlbSession<Authorized> {
 
         // Initialize a playback session containing stream URL.
         let playback_session = self.init_playback_session(&stream_data.media_id).await?;
-        let (command, mut args) = resolve_media_player(media_player)?;
-        args.push(playback_session.playback.url);
-
-        // Send playback URL and other relevant info to media player.
-        Command::new(command).args(args).spawn()?;
+        player::play_stream_url(playback_session.playback.url, media_player)?;
 
         Ok(())
     }
@@ -418,58 +410,5 @@ impl ContentSearchResults {
         self.content
             .iter()
             .find(|stream| stream.media_state.state != "OFF")
-    }
-}
-
-fn find_in_path(command: &str) -> Result<PathBuf> {
-    #[cfg(target_os = "windows")]
-    let output = Command::new("where").arg(command).output()?;
-
-    #[cfg(not(target_os = "windows"))]
-    let output = Command::new("which").arg(command).output()?;
-
-    if !output.status.success() {
-        tracing::warn!(%command, "Command not found in PATH");
-        anyhow::bail!("Command '{}' not found in PATH", command);
-    }
-
-    let stdout_str = String::from_utf8_lossy(&output.stdout);
-    let lines: Vec<_> = stdout_str.lines().map(str::trim).collect();
-
-    let path = lines
-        .iter()
-        .find(|s| s.ends_with(".exe"))
-        .or_else(|| lines.first())
-        .ok_or_else(|| {
-            anyhow::anyhow!("Found entries for '{}' but no valid executable", command)
-        })?;
-
-    tracing::debug!("Found {command} at {path}");
-    Ok(PathBuf::from(path))
-}
-
-pub fn resolve_media_player(media_player: Option<String>) -> io::Result<(String, Vec<String>)> {
-    // Use specified player if found in PATH
-    if let Some(m_player) = media_player
-        && let Ok(path) = find_in_path(m_player.as_str())
-    {
-        return Ok((path.to_string_lossy().into_owned(), Vec::new()));
-    }
-
-    tracing::warn!("No valid media_player provided; falling back to system default player");
-
-    #[cfg(target_os = "windows")]
-    {
-        Ok(("cmd".into(), vec!["/C".into(), "start".into()]))
-    }
-
-    #[cfg(target_os = "macos")]
-    {
-        Ok(("open".into(), Vec::new()))
-    }
-
-    #[cfg(all(unix, not(target_os = "macos")))]
-    {
-        Ok(("xdg-open".into(), Vec::new()))
     }
 }

@@ -1,7 +1,8 @@
+mod api;
 mod cli;
 mod config;
-mod api;
 mod data;
+mod player;
 
 use crate::cli::Cli;
 use crate::config::AppConfig;

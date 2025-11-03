@@ -1,1 +1,1 @@
-pub mod gamedata;
+pub mod schedule;
