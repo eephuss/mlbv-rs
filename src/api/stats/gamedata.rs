@@ -1,7 +1,7 @@
 #![allow(dead_code)] // Shush unused refernce warnings until I know what fields are needed
 
-use crate::session::MlbSession;
-use crate::teamdata::Team;
+use crate::api::session::MlbSession;
+use crate::data::teamdata::Team;
 use anyhow::{Context, Result};
 use chrono::{DateTime, Datelike, Local, NaiveDate};
 use serde::Deserialize;
@@ -438,8 +438,8 @@ pub fn select_game(team_games: Vec<GameData>, game_number: Option<u8>) -> Result
                 tracing::debug!("Doubleheader deteced but no game number specified");
 
                 // If no game number provided, prefer live game. If no live games, return game 1.
-                // TODO: This assumes that vector the vector is ordered chronologically.
-                //       May not be true. Can use game_number attribute of GameData if needed.
+                // TODO: This assumes that the vector is ordered chronologically. May not be true.
+                //       Can use game_number attribute of GameData if needed.
                 let mut iter = team_games.into_iter();
                 let game_one = iter.next().unwrap();
                 let game_two = iter.next().unwrap();

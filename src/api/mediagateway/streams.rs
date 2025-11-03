@@ -1,8 +1,8 @@
 #![allow(dead_code)] // Shush unused refernce warnings until I know what fields are needed
 
-use crate::gamedata;
-use crate::session::{Authorized, MlbSession};
-use crate::teamdata::Team;
+use crate::api::stats::gamedata;
+use crate::api::session::{Authorized, MlbSession};
+use crate::data::teamdata::Team;
 use anyhow::{Context, Result};
 use chrono::NaiveDate;
 use serde::Deserialize;

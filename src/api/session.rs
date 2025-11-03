@@ -1,4 +1,4 @@
-use crate::config;
+use crate::config::config;
 use anyhow::{Context, Result};
 use chrono::{DateTime, Duration, Utc};
 use oauth2::{CsrfToken, PkceCodeChallenge, PkceCodeVerifier};

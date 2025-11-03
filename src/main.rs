@@ -1,15 +1,13 @@
 mod cli;
 mod config;
-mod gamedata;
-mod session;
-mod streams;
-mod teamdata;
+mod api;
+mod data;
 
 use crate::cli::Cli;
 use crate::config::AppConfig;
-use crate::session::MlbSession;
-use crate::streams::MediaType;
-use crate::teamdata::Team;
+use crate::api::session::MlbSession;
+use crate::api::mediagateway::streams::MediaType;
+use crate::data::teamdata::Team;
 use anyhow::Result;
 use chrono::{Duration, Local};
 use clap::Parser;
