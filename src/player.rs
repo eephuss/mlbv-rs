@@ -29,7 +29,7 @@ fn find_in_path(command: &str) -> anyhow::Result<PathBuf> {
     Ok(PathBuf::from(path))
 }
 
-pub fn resolve_media_player(media_player: Option<String>) -> io::Result<(String, Vec<String>)> {
+fn resolve_media_player(media_player: Option<String>) -> io::Result<(String, Vec<String>)> {
     // Use specified player if found in PATH
     if let Some(m_player) = media_player
         && let Ok(path) = find_in_path(m_player.as_str())

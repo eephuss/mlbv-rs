@@ -74,7 +74,7 @@ async fn run() -> Result<()> {
             )
             .await?
     } else if let Some(schedule) = session.fetch_games_by_date(&date).await? {
-        schedule.display_game_data();
+        schedule.display_schedule();
     } else {
         // TODO: Detect when in off-season and add cute "see you next spring!" message.
         println!("No games scheduled for {date}");

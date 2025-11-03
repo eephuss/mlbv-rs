@@ -1,20 +1,13 @@
-#![allow(dead_code)] // Shush unused refernce warnings until I know what fields are needed
-
-use crate::api::session::MlbSession;
+use crate::{api::session::MlbSession, cli};
+use crate::cli::display::{self, GameRow};
 use crate::data::teamdata::Team;
 use anyhow::{Context, Result};
 use chrono::{DateTime, Datelike, Local, NaiveDate};
 use serde::Deserialize;
-use tabled::{
-    Table, Tabled,
-    settings::{Alignment, Style, object::Columns, style::HorizontalLine},
-};
 
 #[derive(Debug, Deserialize)]
 struct ScheduleResponse {
     dates: Vec<DaySchedule>,
-    #[serde(rename = "totalGames")]
-    total_games: u32,
 }
 
 #[derive(Clone, Debug)]
@@ -48,57 +41,19 @@ pub struct DaySchedule {
 #[serde(rename_all = "camelCase")]
 pub struct GameData {
     pub game_pk: u64,
-    game_guid: String,
-    link: String,
-    game_type: String,
-    season: String,
     game_date: String,
-    official_date: String,
     status: GameStatus,
     pub teams: Matchup,
     pub linescore: Linescore,
-    venue: GameVenue,
     broadcasts: Vec<Broadcast>,
-    pub content: Content,
-    is_tie: Option<bool>,
-    game_number: u8,
-    public_facing: bool,
-    double_header: String,
-    gameday_type: String,
-    tiebreaker: String,
-    #[serde(rename = "calendarEventID")]
-    calendar_event_id: String,
-    season_display: String,
-    day_night: String,
-    description: Option<String>,
-    scheduled_innings: u8,
-    reverse_home_away_status: bool,
-    inning_break_length: Option<u8>,
     games_in_series: u8,
     series_game_number: u8,
-    series_description: String,
-    record_source: String,
-    if_necessary: String,
-    if_necessary_description: String,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct GameStatus {
     abstract_game_state: String,
-    coded_game_state: String,
-    detailed_state: String,
-    status_code: String,
-    #[serde(rename = "startTimeTBD")]
-    start_time_tbd: bool,
-    abstract_game_code: String,
-}
-
-#[derive(Debug, Deserialize)]
-struct GameVenue {
-    id: u32,
-    name: String,
-    link: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -110,36 +65,18 @@ pub struct Matchup {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GameTeamStats {
-    pub score: Option<u8>,
     pub team: GameTeam,
-    pub is_winner: Option<bool>,
-    pub split_squad: bool,
-    pub series_number: u8,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct GameTeam {
-    pub id: u32,
     pub name: String,
-    pub link: String,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Linescore {
-    pub current_inning: Option<u8>,
-    pub current_inning_ordinal: Option<String>,
-    pub inning_state: Option<String>,
-    pub inning_half: Option<String>,
-    pub is_top_inning: Option<bool>,
-    pub scheduled_innings: u8,
-    // pub innings: Inning,
     pub teams: ScoreTeams,
-    // pub defense: Defense,
-    // pub offense: Offense,
-    pub balls: Option<u8>,
-    pub strikes: Option<u8>,
-    pub outs: Option<u8>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -152,132 +89,16 @@ pub struct ScoreTeams {
 #[serde(rename_all = "camelCase")]
 pub struct Score {
     runs: Option<u8>,
-    hits: Option<u8>,
-    errors: Option<u8>,
-    left_on_base: Option<u8>,
-    is_winner: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Broadcast {
-    id: u32,
-    name: String,
     #[serde(rename = "type")]
     kind: String,
-    language: String,
     is_national: bool,
-    call_sign: String,
-    video_resolution: Option<BroadcastResolution>,
-    availability: BroadcastAvailability,
-    media_state: BroadcastMediaState,
-    color_space: Option<BroadcastColorSpace>,
-    broadcast_date: String,
-    media_id: String,
-    game_date_broadcast_guid: String,
     home_away: String,
-    free_game: bool,
     available_for_streaming: bool,
-    post_game_show: bool,
-    mvpd_auth_required: bool,
-    free_game_status: bool,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct BroadcastResolution {
-    code: String,
-    resolution_short: String,
-    resolution_full: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct BroadcastAvailability {
-    availability_id: u8,
-    availability_code: String,
-    availability_text: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct BroadcastMediaState {
-    media_state_id: u8,
-    media_state_code: String,
-    media_state_text: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct BroadcastColorSpace {
-    code: String,
-    color_space_full: String,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Content {
-    pub link: String,
-    pub media: Media,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct Media {
-    epg_alternate: Option<Vec<MediaDetails>>,
-    free_game: bool,
-    enhanced_game: bool,
-}
-
-#[derive(Debug, Deserialize)]
-struct MediaDetails {
-    items: Vec<MediaInstance>,
-    title: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct MediaInstance {
-    #[serde(rename = "type")]
-    kind: String,
-    state: String,
-    date: String,
-    id: String,
-    headline: String,
-    seo_title: String,
-    slug: String,
-    blurb: String,
-    no_index: bool,
-    media_playback_id: String,
-    title: String,
-    description: String,
-    duration: String,
-    media_playback_url: String,
-    playbacks: Vec<Playback>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct Playback {
-    name: String,
-    url: String,
-    width: String,
-    height: String,
-}
-
-#[derive(Tabled)]
-struct GameRow {
-    #[tabled(rename = "Time")]
-    time: String,
-    #[tabled(rename = "Matchup")]
-    matchup: String,
-    #[tabled(rename = "Series")]
-    series: String,
-    #[tabled(rename = "Score")]
-    score: String,
-    #[tabled(rename = "State")]
-    state: String,
-    #[tabled(rename = "Feeds")]
-    feeds: String,
 }
 
 // TODO: Update to use start and end date logic.
@@ -316,10 +137,7 @@ pub async fn fetch_games_by_date<State>(
         .context("Failed to parse schedule response")?;
 
     match body.dates.len() {
-        0 => {
-            tracing::info!("Schedule returned no games for {date}.");
-            Ok(None) // If no games are scheduled, then no dates are returned.
-        }
+        0 => Ok(None), // If no games are scheduled, then no dates are returned.
         1 => Ok(Some(body.dates.into_iter().next().unwrap())),
         n => anyhow::bail!("Expected 1 date but got {n} - possible API change."),
     }
@@ -344,12 +162,12 @@ impl DaySchedule {
             .collect();
 
         match team_games.len() {
-            0 => None,
+            0 => None, // Your team isn't playing today.
             _ => Some(team_games), // Your team has a game or doubleheader today.
         }
     }
 
-    pub fn display_game_data(&self) {
+    pub fn display_schedule(&self) {
         let weekday = self.date.format("%A");
         let header_date = format!("{} {}", self.date, weekday);
 
@@ -404,16 +222,7 @@ impl DaySchedule {
             });
         }
 
-        let table_style = Style::modern()
-            .horizontals([(1, HorizontalLine::inherit(Style::modern()))])
-            .remove_horizontal()
-            .remove_frame();
-
-        let mut table = Table::new(rows);
-        table
-            .with(table_style)
-            // .modify(Columns::first(), Alignment::right())
-            .modify(Columns::one(4), Alignment::right());
+        let table = display::format_schedule_table(rows);
 
         println!("{header_date}");
         println!("{}", table);
