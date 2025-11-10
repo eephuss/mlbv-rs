@@ -34,7 +34,8 @@ pub struct Cli {
     #[arg(long)]
     pub yesterday: bool,
 
-    #[arg(long)]
+    /// Number of days to display. Use negative number to go back from today.
+    #[arg(long, conflicts_with("team"))]
     pub days: Option<i64>,
 
     /// Preferred feed to return (home, away, national)

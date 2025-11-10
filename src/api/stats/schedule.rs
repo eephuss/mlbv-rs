@@ -4,6 +4,7 @@ use crate::data::teamdata::Team;
 use anyhow::{Context, Result};
 use chrono::{DateTime, Datelike, Local, NaiveDate};
 use serde::Deserialize;
+use tabled::Table;
 
 #[derive(Debug, Deserialize)]
 struct ScheduleResponse {
@@ -34,7 +35,7 @@ impl std::str::FromStr for GameDate {
 #[derive(Debug, Deserialize)]
 pub struct DaySchedule {
     date: NaiveDate,
-    games: Vec<GameData>,
+    pub games: Vec<GameData>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -102,8 +103,7 @@ struct Broadcast {
 }
 
 impl<State> MlbSession<State> {
-    // TODO: Update to use start and end date logic.
-    pub async fn fetch_schedule_by_date(&self, date: &NaiveDate) -> Result<Option<DaySchedule>> {
+    async fn make_schedule_request(&self, start_date: &NaiveDate, end_date: &NaiveDate) -> Result<ScheduleResponse> {
         let hydrate = concat!(
             "hydrate=,",
             "broadcasts(all),",
@@ -114,8 +114,9 @@ impl<State> MlbSession<State> {
             "probablePitcher(note)",
         );
         let url = format!(
-            "https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate={d}&endDate={d}&{h}",
-            d = date,
+            "https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate={s}&endDate={e}&{h}",
+            s = start_date,
+            e = end_date,
             h = hydrate
         );
 
@@ -133,10 +134,25 @@ impl<State> MlbSession<State> {
             .json()
             .await
             .context("Failed to parse schedule response")?;
+        
+        Ok(body)
+    }
 
-        match body.dates.len() {
+    pub async fn fetch_schedule_by_range(&self, start_date: &NaiveDate, end_date: &NaiveDate) -> Result<Option<Vec<DaySchedule>>> {
+        let resp = self.make_schedule_request(start_date, end_date).await?;
+
+        match resp.dates.len() {
             0 => Ok(None), // If no games are scheduled, then no dates are returned.
-            1 => Ok(Some(body.dates.into_iter().next().unwrap())),
+            _ => Ok(Some(resp.dates)),
+        }
+    }
+
+    pub async fn fetch_schedule_by_date(&self, date: &NaiveDate) -> Result<Option<DaySchedule>> {
+        let resp = self.make_schedule_request(date, date).await?;
+
+        match resp.dates.len() {
+            0 => Ok(None), // If no games are scheduled, then no dates are returned.
+            1 => Ok(Some(resp.dates.into_iter().next().unwrap())),
             n => anyhow::bail!("Expected 1 date but got {n} - possible API change."),
         }
     }
@@ -160,7 +176,7 @@ impl DaySchedule {
         }
     }
 
-    pub fn display_schedule(&self) {
+    pub fn prepare_schedule_table(&self) -> Table {
         let weekday = self.date.format("%A");
         let header_date = format!("{} {}", self.date, weekday);
 
@@ -213,10 +229,7 @@ impl DaySchedule {
                 feeds,
             });
         }
-
-        let table = display::format_schedule_table(rows, &header_date);
-
-        println!("{}", table);
+        display::format_schedule_table(rows, &header_date)
     }
 }
 

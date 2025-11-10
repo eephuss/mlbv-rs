@@ -4,7 +4,7 @@ mod config;
 mod data;
 mod player;
 
-use crate::api::mediagateway::streams::MediaType;
+use crate::{api::mediagateway::streams::MediaType, cli::display::combine_schedule_tables};
 use crate::api::session::MlbSession;
 use crate::cli::Cli;
 use crate::config::AppConfig;
@@ -12,6 +12,7 @@ use crate::data::teamdata::Team;
 use anyhow::Result;
 use chrono::{Duration, Local};
 use clap::Parser;
+use std::cmp;
 
 fn main() -> Result<()> {
     if let Err(e) = run() {
@@ -40,16 +41,17 @@ async fn run() -> Result<()> {
         .init();
 
     let session = MlbSession::new()?;
+    let today = Local::now().date_naive();
 
     // Use user-provided date. If none, return today's date
     let date = if let Some(game_date) = cli.date {
         game_date.0 // 0 extracts NaiveDate from GameDate
     } else if cli.yesterday {
-        Local::now().date_naive() - Duration::days(1)
+        today - Duration::days(1)
     } else if cli.tomorrow {
-        Local::now().date_naive() + Duration::days(1)
+        today + Duration::days(1)
     } else {
-        Local::now().date_naive()
+        today
     };
 
     // Assume users want video broadcast unless they opt out
@@ -76,8 +78,19 @@ async fn run() -> Result<()> {
                 cfg.stream.video_player,
             )
             .await?
-    } else if let Some(schedule) = session.fetch_games_by_date(&date).await? {
-        schedule.display_schedule();
+    } else if let Some(days) = cli.days {
+        let offset_date = today + Duration::days(days);
+        let (start_date, end_date) = (cmp::min(today, offset_date), cmp::max(today, offset_date));
+
+        if let Some(schedule) = session.fetch_schedule_by_range(&start_date, &end_date).await? {
+            let combined_table = combine_schedule_tables(schedule);
+            println!("{}", combined_table);
+        } else {
+            println!("No games scheduled between {start_date} and {end_date}")
+        }
+    } else if let Some(schedule) = session.fetch_schedule_by_date(&date).await? {
+        let table = schedule.prepare_schedule_table();
+        println!("{}", table)
     } else {
         // TODO: Detect when in off-season and add cute "see you next spring!" message.
         println!("No games scheduled for {date}");
