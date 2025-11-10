@@ -6,9 +6,10 @@ mod player;
 
 use crate::api::session::MlbSession;
 use crate::cli::Cli;
+use crate::cli::display;
 use crate::config::AppConfig;
 use crate::data::teamdata::Team;
-use crate::{api::mediagateway::streams::MediaType, cli::display::combine_schedule_tables};
+use crate::api::mediagateway::streams::MediaType;
 use anyhow::Result;
 use chrono::{Duration, Local};
 use clap::Parser;
@@ -86,13 +87,13 @@ async fn run() -> Result<()> {
             .fetch_schedule_by_range(&start_date, &end_date)
             .await?
         {
-            let combined_table = combine_schedule_tables(schedule);
+            let combined_table = display::combine_schedule_tables(schedule);
             println!("{}", combined_table);
         } else {
             println!("No games scheduled between {start_date} and {end_date}")
         }
     } else if let Some(schedule) = session.fetch_schedule_by_date(&date).await? {
-        let table = schedule.prepare_schedule_table();
+        let table = display::prepare_schedule_table(schedule);
         println!("{}", table)
     } else {
         // TODO: Detect when in off-season and add cute "see you next spring!" message.

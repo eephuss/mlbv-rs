@@ -1,4 +1,5 @@
 use crate::api::stats::schedule::DaySchedule;
+use chrono::{DateTime, Local};
 use tabled::{
     Table, Tabled,
     settings::{Alignment, Concat, Style, Theme, object::Columns, style::HorizontalLine},
@@ -41,13 +42,69 @@ pub fn format_schedule_table(game_rows: Vec<GameRow>, date_str: &str) -> tabled:
     table
 }
 
+pub fn prepare_schedule_table(schedule: DaySchedule) -> Table {
+    let weekday = schedule.date.format("%A");
+    let header_date = format!("{} {}", schedule.date, weekday);
+
+    let mut rows = Vec::new();
+
+    for game in &schedule.games {
+        let game_time = DateTime::parse_from_rfc3339(&game.game_date)
+            .map(|dt| {
+                dt.with_timezone(&Local)
+                    .format("%I:%M %p")
+                    .to_string()
+                    .to_lowercase()
+            })
+            .unwrap_or_else(|_| "TBD".to_string());
+
+        let away_team = &game.teams.away.team.name;
+        let home_team = &game.teams.home.team.name;
+        let matchup = format!("{game_time} - {away_team} at {home_team}");
+
+        let games_in_series = &game.games_in_series;
+        let series_game_number = &game.series_game_number;
+        let series = format!("{series_game_number}/{games_in_series}");
+
+        let away_score = &game.linescore.teams.away.runs.unwrap_or(0);
+        let home_score = &game.linescore.teams.home.runs.unwrap_or(0);
+        let score = format!("{away_score}-{home_score}");
+
+        let state = String::from(&game.status.abstract_game_state);
+
+        let feeds = {
+            let mut feeds: Vec<&str> = game
+                .broadcasts
+                .iter()
+                .filter(|feed| feed.kind == "TV")
+                .filter(|feed| feed.available_for_streaming)
+                .map(|feed| match feed.is_national {
+                    true => "national",
+                    false => &feed.home_away,
+                })
+                .collect();
+            feeds.sort();
+            feeds.join(", ")
+        };
+
+        rows.push(GameRow {
+            matchup,
+            series,
+            score,
+            state,
+            feeds,
+        });
+    }
+    format_schedule_table(rows, &header_date)
+}
+
 pub fn combine_schedule_tables(schedule: Vec<DaySchedule>) -> tabled::Table {
     let mut tables = Vec::new();
     let mut offsets = Vec::new();
     let mut total_rows = 0;
 
     for day in schedule {
-        let table = day.prepare_schedule_table();
+        let table = prepare_schedule_table(day);
         let rows = table.count_rows();
         tables.push(table);
         total_rows += rows;

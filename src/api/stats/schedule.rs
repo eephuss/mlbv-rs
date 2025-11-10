@@ -1,10 +1,8 @@
 use crate::api::session::MlbSession;
-use crate::cli::display::{self, GameRow};
 use crate::data::teamdata::Team;
 use anyhow::{Context, Result};
-use chrono::{DateTime, Datelike, Local, NaiveDate};
+use chrono::{Datelike, NaiveDate};
 use serde::Deserialize;
-use tabled::Table;
 
 #[derive(Debug, Deserialize)]
 struct ScheduleResponse {
@@ -34,7 +32,7 @@ impl std::str::FromStr for GameDate {
 
 #[derive(Debug, Deserialize)]
 pub struct DaySchedule {
-    date: NaiveDate,
+    pub date: NaiveDate,
     pub games: Vec<GameData>,
 }
 
@@ -42,19 +40,19 @@ pub struct DaySchedule {
 #[serde(rename_all = "camelCase")]
 pub struct GameData {
     pub game_pk: u64,
-    game_date: String,
-    status: GameStatus,
+    pub game_date: String,
+    pub status: GameStatus,
     pub teams: Matchup,
     pub linescore: Linescore,
-    broadcasts: Vec<Broadcast>,
-    games_in_series: u8,
-    series_game_number: u8,
+    pub broadcasts: Vec<Broadcast>,
+    pub games_in_series: u8,
+    pub series_game_number: u8,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct GameStatus {
-    abstract_game_state: String,
+pub struct GameStatus {
+    pub abstract_game_state: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -82,24 +80,24 @@ pub struct Linescore {
 
 #[derive(Debug, Deserialize)]
 pub struct ScoreTeams {
-    home: Score,
-    away: Score,
+    pub home: Score,
+    pub away: Score,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Score {
-    runs: Option<u8>,
+    pub runs: Option<u8>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct Broadcast {
+pub struct Broadcast {
     #[serde(rename = "type")]
-    kind: String,
-    is_national: bool,
-    home_away: String,
-    available_for_streaming: bool,
+    pub kind: String,
+    pub is_national: bool,
+    pub home_away: String,
+    pub available_for_streaming: bool,
 }
 
 impl<State> MlbSession<State> {
@@ -182,62 +180,6 @@ impl DaySchedule {
             0 => None,             // Your team isn't playing today.
             _ => Some(team_games), // Your team has a game or doubleheader today.
         }
-    }
-
-    pub fn prepare_schedule_table(&self) -> Table {
-        let weekday = self.date.format("%A");
-        let header_date = format!("{} {}", self.date, weekday);
-
-        let mut rows = Vec::new();
-
-        for game in &self.games {
-            let game_time = DateTime::parse_from_rfc3339(&game.game_date)
-                .map(|dt| {
-                    dt.with_timezone(&Local)
-                        .format("%I:%M %p")
-                        .to_string()
-                        .to_lowercase()
-                })
-                .unwrap_or_else(|_| "TBD".to_string());
-
-            let away_team = &game.teams.away.team.name;
-            let home_team = &game.teams.home.team.name;
-            let matchup = format!("{game_time} - {away_team} at {home_team}");
-
-            let games_in_series = &game.games_in_series;
-            let series_game_number = &game.series_game_number;
-            let series = format!("{series_game_number}/{games_in_series}");
-
-            let away_score = &game.linescore.teams.away.runs.unwrap_or(0);
-            let home_score = &game.linescore.teams.home.runs.unwrap_or(0);
-            let score = format!("{away_score}-{home_score}");
-
-            let state = String::from(&game.status.abstract_game_state);
-
-            let feeds = {
-                let mut feeds: Vec<&str> = game
-                    .broadcasts
-                    .iter()
-                    .filter(|feed| feed.kind == "TV")
-                    .filter(|feed| feed.available_for_streaming)
-                    .map(|feed| match feed.is_national {
-                        true => "national",
-                        false => &feed.home_away,
-                    })
-                    .collect();
-                feeds.sort();
-                feeds.join(", ")
-            };
-
-            rows.push(GameRow {
-                matchup,
-                series,
-                score,
-                state,
-                feeds,
-            });
-        }
-        display::format_schedule_table(rows, &header_date)
     }
 }
 
