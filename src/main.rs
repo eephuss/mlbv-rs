@@ -4,11 +4,11 @@ mod config;
 mod data;
 mod player;
 
-use crate::{api::mediagateway::streams::MediaType, cli::display::combine_schedule_tables};
 use crate::api::session::MlbSession;
 use crate::cli::Cli;
 use crate::config::AppConfig;
 use crate::data::teamdata::Team;
+use crate::{api::mediagateway::streams::MediaType, cli::display::combine_schedule_tables};
 use anyhow::Result;
 use chrono::{Duration, Local};
 use clap::Parser;
@@ -82,7 +82,10 @@ async fn run() -> Result<()> {
         let offset_date = today + Duration::days(days);
         let (start_date, end_date) = (cmp::min(today, offset_date), cmp::max(today, offset_date));
 
-        if let Some(schedule) = session.fetch_schedule_by_range(&start_date, &end_date).await? {
+        if let Some(schedule) = session
+            .fetch_schedule_by_range(&start_date, &end_date)
+            .await?
+        {
             let combined_table = combine_schedule_tables(schedule);
             println!("{}", combined_table);
         } else {

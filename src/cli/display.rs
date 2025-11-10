@@ -1,8 +1,8 @@
+use crate::api::stats::schedule::DaySchedule;
 use tabled::{
     Table, Tabled,
     settings::{Alignment, Concat, Style, Theme, object::Columns, style::HorizontalLine},
 };
-use crate::api::stats::schedule::DaySchedule;
 
 // Schedule display logic
 #[derive(Tabled)]
@@ -25,8 +25,7 @@ fn schedule_table_theme() -> Theme {
         .horizontals([(1, HorizontalLine::inherit(Style::modern()))]) // Re-create just the header border
         .remove_frame();
 
-    let theme = Theme::from_style(style);
-    theme
+    Theme::from_style(style)
 }
 
 pub fn format_schedule_table(game_rows: Vec<GameRow>, date_str: &str) -> tabled::Table {
@@ -68,9 +67,9 @@ pub fn combine_schedule_tables(schedule: Vec<DaySchedule>) -> tabled::Table {
 
     let mut theme = schedule_table_theme();
     for &row in &offsets {
-        theme.insert_horizontal_line(row,empty_line);
+        theme.insert_horizontal_line(row, empty_line);
         theme.insert_horizontal_line(row + 1, header_line);
-    };
+    }
     combined_table.with(theme);
 
     combined_table

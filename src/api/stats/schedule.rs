@@ -103,7 +103,11 @@ struct Broadcast {
 }
 
 impl<State> MlbSession<State> {
-    async fn make_schedule_request(&self, start_date: &NaiveDate, end_date: &NaiveDate) -> Result<ScheduleResponse> {
+    async fn make_schedule_request(
+        &self,
+        start_date: &NaiveDate,
+        end_date: &NaiveDate,
+    ) -> Result<ScheduleResponse> {
         let hydrate = concat!(
             "hydrate=,",
             "broadcasts(all),",
@@ -134,11 +138,15 @@ impl<State> MlbSession<State> {
             .json()
             .await
             .context("Failed to parse schedule response")?;
-        
+
         Ok(body)
     }
 
-    pub async fn fetch_schedule_by_range(&self, start_date: &NaiveDate, end_date: &NaiveDate) -> Result<Option<Vec<DaySchedule>>> {
+    pub async fn fetch_schedule_by_range(
+        &self,
+        start_date: &NaiveDate,
+        end_date: &NaiveDate,
+    ) -> Result<Option<Vec<DaySchedule>>> {
         let resp = self.make_schedule_request(start_date, end_date).await?;
 
         match resp.dates.len() {
