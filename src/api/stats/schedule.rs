@@ -101,51 +101,44 @@ struct Broadcast {
     available_for_streaming: bool,
 }
 
-// TODO: Update to use start and end date logic.
-pub async fn fetch_schedule_by_date<State>(
-    session: &MlbSession<State>,
-    date: &NaiveDate,
-) -> Result<Option<DaySchedule>> {
-    let hydrate = concat!(
-        "hydrate=,",
-        "broadcasts(all),",
-        "game(content(media(epg)),",
-        "editorial(preview,recap)),",
-        "linescore,",
-        "team,",
-        "probablePitcher(note)",
-    );
-    let url = format!(
-        "https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate={d}&endDate={d}&{h}",
-        d = date,
-        h = hydrate
-    );
-
-    let res = session
-        .client
-        .get(url)
-        .header("Connection", "close")
-        .send()
-        .await
-        .context("Failed to send schedule request")?
-        .error_for_status()
-        .context("Schedule fetch returned unsuccessful status")?;
-
-    let body: ScheduleResponse = res
-        .json()
-        .await
-        .context("Failed to parse schedule response")?;
-
-    match body.dates.len() {
-        0 => Ok(None), // If no games are scheduled, then no dates are returned.
-        1 => Ok(Some(body.dates.into_iter().next().unwrap())),
-        n => anyhow::bail!("Expected 1 date but got {n} - possible API change."),
-    }
-}
-
 impl<State> MlbSession<State> {
+    // TODO: Update to use start and end date logic.
     pub async fn fetch_schedule_by_date(&self, date: &NaiveDate) -> Result<Option<DaySchedule>> {
-        fetch_schedule_by_date(self, date).await
+        let hydrate = concat!(
+            "hydrate=,",
+            "broadcasts(all),",
+            "game(content(media(epg)),",
+            "editorial(preview,recap)),",
+            "linescore,",
+            "team,",
+            "probablePitcher(note)",
+        );
+        let url = format!(
+            "https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate={d}&endDate={d}&{h}",
+            d = date,
+            h = hydrate
+        );
+
+        let res = self
+            .client
+            .get(url)
+            .header("Connection", "close")
+            .send()
+            .await
+            .context("Failed to send schedule request")?
+            .error_for_status()
+            .context("Schedule fetch returned unsuccessful status")?;
+
+        let body: ScheduleResponse = res
+            .json()
+            .await
+            .context("Failed to parse schedule response")?;
+
+        match body.dates.len() {
+            0 => Ok(None), // If no games are scheduled, then no dates are returned.
+            1 => Ok(Some(body.dates.into_iter().next().unwrap())),
+            n => anyhow::bail!("Expected 1 date but got {n} - possible API change."),
+        }
     }
 }
 
