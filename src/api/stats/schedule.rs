@@ -102,7 +102,7 @@ struct Broadcast {
 }
 
 // TODO: Update to use start and end date logic.
-pub async fn fetch_games_by_date<State>(
+pub async fn fetch_schedule_by_date<State>(
     session: &MlbSession<State>,
     date: &NaiveDate,
 ) -> Result<Option<DaySchedule>> {
@@ -144,8 +144,8 @@ pub async fn fetch_games_by_date<State>(
 }
 
 impl<State> MlbSession<State> {
-    pub async fn fetch_games_by_date(&self, date: &NaiveDate) -> Result<Option<DaySchedule>> {
-        fetch_games_by_date(self, date).await
+    pub async fn fetch_schedule_by_date(&self, date: &NaiveDate) -> Result<Option<DaySchedule>> {
+        fetch_schedule_by_date(self, date).await
     }
 }
 
