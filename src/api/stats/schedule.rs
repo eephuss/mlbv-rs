@@ -162,7 +162,7 @@ impl DaySchedule {
             .collect();
 
         match team_games.len() {
-            0 => None, // Your team isn't playing today.
+            0 => None,             // Your team isn't playing today.
             _ => Some(team_games), // Your team has a game or doubleheader today.
         }
     }
@@ -174,7 +174,7 @@ impl DaySchedule {
         let mut rows = Vec::new();
 
         for game in &self.games {
-            let time = DateTime::parse_from_rfc3339(&game.game_date)
+            let game_time = DateTime::parse_from_rfc3339(&game.game_date)
                 .map(|dt| {
                     dt.with_timezone(&Local)
                         .format("%I:%M %p")
@@ -185,7 +185,7 @@ impl DaySchedule {
 
             let away_team = &game.teams.away.team.name;
             let home_team = &game.teams.home.team.name;
-            let matchup = format!("{} at {}", away_team, home_team);
+            let matchup = format!("{game_time} - {away_team} at {home_team}");
 
             let games_in_series = &game.games_in_series;
             let series_game_number = &game.series_game_number;
@@ -213,7 +213,6 @@ impl DaySchedule {
             };
 
             rows.push(GameRow {
-                time,
                 matchup,
                 series,
                 score,
@@ -222,9 +221,8 @@ impl DaySchedule {
             });
         }
 
-        let table = display::format_schedule_table(rows);
+        let table = display::format_schedule_table(rows, &header_date);
 
-        println!("{header_date}");
         println!("{}", table);
     }
 }

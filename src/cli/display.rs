@@ -6,8 +6,6 @@ use tabled::{
 // Schedule display logic
 #[derive(Tabled)]
 pub struct GameRow {
-    #[tabled(rename = "Time")]
-    pub time: String,
     #[tabled(rename = "Matchup")]
     pub matchup: String,
     #[tabled(rename = "Series")]
@@ -20,17 +18,19 @@ pub struct GameRow {
     pub feeds: String,
 }
 
-pub fn format_schedule_table(game_rows: Vec<GameRow>) -> tabled::Table {
+// TODO: Current formatting attempts to match original mlbv. How faithful do we want to be here?
+pub fn format_schedule_table(game_rows: Vec<GameRow>, date_str: &str) -> tabled::Table {
     let table_style = Style::modern()
-        .horizontals([(1, HorizontalLine::inherit(Style::modern()))])
-        .remove_horizontal()
-        .remove_frame();
+        .remove_horizontal() // Remove internal horizontal lines
+        .horizontals([(1, HorizontalLine::inherit(Style::modern()))]) // Re-create just the header border
+        .remove_frame(); // Remove the outline around the table
 
     let mut table = Table::new(game_rows);
     table
         .with(table_style)
-        .modify(Columns::first(), Alignment::right())
-        .modify(Columns::one(4), Alignment::right());
+        .modify((0, 0), date_str) // Replace matchup header with date + dow
+        .modify(Columns::first(), Alignment::left()) // Left-align times
+        .modify(Columns::one(3), Alignment::right()); // Right-align scores
 
     table
 }
