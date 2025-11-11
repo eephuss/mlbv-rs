@@ -2,6 +2,10 @@
 name = "mlbv-rs"
 version = "0.1.0"
 edition = "2024"
+authors = ["Tom Cole <mlbv_project@fastmail.com>"]
+license = "GPL-3.0-only"
+keywords = ["mlb", "cli", "streaming", "sports"]
+categories = ["command-line-utilities"]
 
 [dependencies]
 directories = "6.0.0"
