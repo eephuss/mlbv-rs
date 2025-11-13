@@ -74,9 +74,8 @@ pub fn prepare_schedule_table(schedule: DaySchedule) -> Table {
 
         let state = String::from(&game.status.abstract_game_state);
 
-        let feeds = {
-            let mut feeds: Vec<&str> = game
-                .broadcasts
+        let feeds = if let Some(broadcasts) = &game.broadcasts {
+            let mut feeds: Vec<&str> =  broadcasts
                 .iter()
                 .filter(|feed| feed.kind == "TV")
                 .filter(|feed| feed.available_for_streaming)
@@ -87,6 +86,8 @@ pub fn prepare_schedule_table(schedule: DaySchedule) -> Table {
                 .collect();
             feeds.sort();
             feeds.join(", ")
+        } else {
+            "".to_string()
         };
 
         let highlights = if let Some(highlights) = &game.content.media.epg_alternate {
@@ -98,7 +99,7 @@ pub fn prepare_schedule_table(schedule: DaySchedule) -> Table {
             highlight_types.sort();
             highlight_types.join(", ")
         } else {
-            "None".to_string()
+            "".to_string()
         };
 
         rows.push(GameRow {

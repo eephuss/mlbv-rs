@@ -2,7 +2,7 @@
 
 A rewrite of [kmac/mlbv](https://github.com/kmac/mlbv-archived) in Rust.
 
-The original tool was great, and I wanted to learn Rust. This seemed like a good opportunity to kill two birds with one stone. This initial release implements only essential features, allowing users to stream live and archived games and check the schedule. I plan to re-add features from the original mlbv in subsequent releases.
+The original tool was great, and I wanted to learn Rust. This seemed like a good opportunity to kill two birds with one stone. This initial release implements only essential features, allowing users to stream live and archived games, watch highlights and check the schedule. I plan to re-add features from the original mlbv in subsequent releases.
 
 ## Features
 
@@ -17,7 +17,6 @@ This project is a command-line interface to MLB.tv and MLB's stats API.
 
 ## Roadmap
 
-- View highlights and recaps
 - Favorites and colorization
 - Complete line and box scores
 - Record streams

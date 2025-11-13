@@ -46,7 +46,7 @@ pub struct GameData {
     pub status: GameStatus,
     pub teams: Matchup,
     pub linescore: Linescore,
-    pub broadcasts: Vec<Broadcast>,
+    pub broadcasts: Option<Vec<Broadcast>>, // May be missing for future-dated games.
     pub content: Content,
     pub games_in_series: u8,
     pub series_game_number: u8,
