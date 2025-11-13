@@ -29,6 +29,8 @@ This project is a command-line interface to MLB.tv and MLB's stats API.
 
 - Original project by [kmac](https://github.com/kmac/mlbv-archived)
 - API session authentication research from [mlbstreamer](https://github.com/tonycpsu/mlbstreamer) and [Kodi MLB.tv plugin](https://github.com/eracknaphobia/plugin.video.mlbtv)
+- Okta PKCE logic by [mattiasa](https://github.com/mattiasa)
+- Preservation and maintenance by [adam-ducker](https://github.com/adam-ducker)
 
 ## License
 
