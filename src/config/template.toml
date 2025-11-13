@@ -61,7 +61,7 @@ stats_limit = 10
 
 [stream]
 # Bandwidth/stream resolution. This is passed into streamlink.
-# One of: 'worst', '224p', '288p', '360p', '504p', '540p', '720p', '720p_alt', 'best'
+# One of: 'worst', '224p', '288p', '360p', '504p', '540p', '720p', '720p_alt', '1080p', 'best'
 #   Note: 720p_alt is the 60fps stream; all others are 30fps.
 #   Fallback streams can be specified by using a comma-separated list, e.g.: 720p_alt,720p,540p
 resolution = "720p_alt"

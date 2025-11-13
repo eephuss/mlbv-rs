@@ -65,11 +65,14 @@ async fn run() -> Result<()> {
             game_number,
         } => {
             let team = team_code.team();
-            session
+            if let Some(url) = session
                 .authorize(&cfg.credentials.username, &cfg.credentials.password)
                 .await?
-                .find_and_play_stream(team, date, media_type, feed_type, game_number, media_player)
-                .await?;
+                .find_stream_playback_url(team, date, media_type, feed_type, game_number)
+                .await?
+            {
+                player::handle_playback_url(url, &cli, media_player)?
+            }
         }
         CliMode::PlayCondensedGame {
             team_code,
@@ -78,9 +81,12 @@ async fn run() -> Result<()> {
         } => {
             let team = team_code.team();
             let highlight_type = schedule::HighlightType::CondensedGame;
-            session
-                .find_and_play_highlight(team, date, highlight_type, game_number, media_player)
+            if let Some(url) = session
+                .find_highlight_playback_url(team, date, highlight_type, game_number)
                 .await?
+            {
+                player::handle_playback_url(url, &cli, media_player)?
+            }
         }
         CliMode::PlayRecap {
             date,
@@ -93,9 +99,12 @@ async fn run() -> Result<()> {
             // If user provided a team, fetch recap for that team
             if let Some(team_code) = team_code {
                 let team = team_code.team();
-                session
-                    .find_and_play_highlight(team, date, highlight_type, game_number, media_player)
+                if let Some(url) = session
+                    .find_highlight_playback_url(team, date, highlight_type, game_number)
                     .await?
+                {
+                    player::handle_playback_url(url, &cli, media_player)?
+                }
             } else if let Some(schedule) = session.fetch_schedule_by_date(&date).await? {
                 // If no team provided, fetch recaps for all teams on specified day.
                 let matchups: Vec<(String, String)> = schedule
@@ -112,15 +121,12 @@ async fn run() -> Result<()> {
                     tracing::info!("Playing: {} at {}", away, home);
                     let team = Team::find_by_name(&home)
                         .ok_or_else(|| anyhow::anyhow!("Invalid team name"))?;
-                    session
-                        .find_and_play_highlight(
-                            team,
-                            date,
-                            highlight_type,
-                            game_number,
-                            media_player,
-                        )
+                    if let Some(url) = session
+                        .find_highlight_playback_url(team, date, highlight_type, game_number)
                         .await?
+                    {
+                        player::handle_playback_url(url, &cli, media_player)?
+                    }
                 }
             }
         }

@@ -1,3 +1,4 @@
+use crate::cli::Cli;
 use std::io;
 use std::path::PathBuf;
 use std::process::Command;
@@ -65,5 +66,15 @@ pub fn play_stream_url(url: String, media_player: Option<&str>) -> anyhow::Resul
     match status.success() {
         true => Ok(()),
         false => anyhow::bail!("Media player exited with status: {}", status),
+    }
+}
+
+pub fn handle_playback_url(url: String, cli: &Cli, media_player: Option<&str>) -> anyhow::Result<()> {
+    match cli.url {
+        true => {
+            println!("{url}");
+            Ok(())
+        }
+        false => play_stream_url(url, media_player),
     }
 }

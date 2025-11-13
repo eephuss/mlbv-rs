@@ -228,21 +228,20 @@ impl<State> MlbSession<State> {
         }
     }
 
-    pub async fn find_and_play_highlight(
+    pub async fn find_highlight_playback_url(
         &self,
         team: &Team,
         date: NaiveDate,
         highlight_type: HighlightType,
         game_number: Option<u8>,
-        media_player: Option<&str>,
-    ) -> Result<()> {
+    ) -> Result<Option<String>> {
         let Some(team_games) = self
             .fetch_schedule_by_date(&date)
             .await?
             .and_then(|s| s.find_team_games(team))
         else {
             tracing::info!("No games found for the {} on {}", team.name, date);
-            return Ok(());
+            return Ok(None);
         };
 
         let game_data = select_game(team_games, game_number)?;
@@ -253,11 +252,10 @@ impl<State> MlbSession<State> {
                 team.name,
                 date
             );
-            return Ok(());
+            return Ok(None);
         };
 
-        crate::player::play_stream_url(url, media_player)?;
-        Ok(())
+        Ok(Some(url))
     }
 }
 

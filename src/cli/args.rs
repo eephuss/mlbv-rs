@@ -59,6 +59,10 @@ pub struct Cli {
     #[arg(short, long)]
     pub game_number: Option<u8>,
 
+    /// Print stream URL without passing it to media player
+    #[arg(short, long)]
+    pub url: bool,
+
     /// Increase verbosity (-v, -vv, etc.)
     #[arg(short, long, action = clap::ArgAction::Count)]
     pub verbose: u8,

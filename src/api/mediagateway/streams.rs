@@ -1,7 +1,6 @@
 use crate::api::session::{Authorized, MlbSession};
 use crate::api::stats::schedule;
 use crate::data::teamdata::Team;
-use crate::player;
 use anyhow::{Context, Result};
 use chrono::NaiveDate;
 use serde::Deserialize;
@@ -246,15 +245,14 @@ impl MlbSession<Authorized> {
         Ok(res_body.data.init_playback_session)
     }
 
-    pub async fn find_and_play_stream(
+    pub async fn find_stream_playback_url(
         &self,
         team: &Team,
         date: NaiveDate,
         media_type: MediaType,
         feed_type: Option<FeedType>,
         game_number: Option<u8>,
-        media_player: Option<&str>,
-    ) -> Result<()> {
+    ) -> Result<Option<String>> {
         // Fetch schedule and filter for team games on specified date.
         let Some(team_games) = self
             .fetch_schedule_by_date(&date)
@@ -262,7 +260,7 @@ impl MlbSession<Authorized> {
             .and_then(|s| s.find_team_games(team))
         else {
             tracing::info!("No games found for the {} on {}", team.name, date);
-            return Ok(());
+            return Ok(None);
         };
 
         // Return a single game then match feed type to team's home/away status if not provided.
@@ -279,14 +277,13 @@ impl MlbSession<Authorized> {
         let stream_data = self.fetch_available_feeds(&game_data.game_pk).await?;
         let Some(stream_data) = stream_data.find_best_feed(media_type, feed_type) else {
             tracing::warn!("No streams available; user may not have access to this content");
-            return Ok(());
+            return Ok(None);
         };
 
         // Initialize a playback session containing stream URL.
         let playback_session = self.init_playback_session(&stream_data.media_id).await?;
-        player::play_stream_url(playback_session.playback.url, media_player)?;
 
-        Ok(())
+        Ok(Some(playback_session.playback.url))
     }
 }
 
