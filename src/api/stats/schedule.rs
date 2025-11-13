@@ -3,6 +3,8 @@ use crate::data::teamdata::Team;
 use anyhow::{Context, Result};
 use chrono::{Datelike, NaiveDate};
 use serde::Deserialize;
+use serde::de::{self, Deserializer, Unexpected};
+use std::fmt;
 
 #[derive(Debug, Deserialize)]
 struct ScheduleResponse {
@@ -45,6 +47,7 @@ pub struct GameData {
     pub teams: Matchup,
     pub linescore: Linescore,
     pub broadcasts: Vec<Broadcast>,
+    pub content: Content,
     pub games_in_series: u8,
     pub series_game_number: u8,
 }
@@ -59,6 +62,68 @@ pub struct GameStatus {
 pub struct Matchup {
     pub home: GameTeamStats,
     pub away: GameTeamStats,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Content {
+    pub media: Media,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Media {
+    pub epg_alternate: Option<Vec<Highlight>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Highlight {
+    items: Vec<HighlightDetails>,
+    pub title: HighlightType,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HighlightType {
+    CondensedGame,
+    Recap,
+}
+
+impl<'de> Deserialize<'de> for HighlightType {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s: &str = Deserialize::deserialize(deserializer)?;
+        match s.to_lowercase().as_str() {
+            "extended highlights" => Ok(HighlightType::CondensedGame),
+            "daily recap" => Ok(HighlightType::Recap),
+            other => Err(de::Error::invalid_value(
+                Unexpected::Str(other),
+                &"either 'Extended Highlights' or 'Daily Recap'",
+            )),
+        }
+    }
+}
+
+impl fmt::Display for HighlightType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            HighlightType::CondensedGame => write!(f, "Condensed Game"),
+            HighlightType::Recap => write!(f, "Recap"),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct HighlightDetails {
+    playbacks: Vec<HighlightPlayback>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct HighlightPlayback {
+    name: String,
+    url: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -162,6 +227,38 @@ impl<State> MlbSession<State> {
             n => anyhow::bail!("Expected 1 date but got {n} - possible API change."),
         }
     }
+
+    pub async fn find_and_play_highlight(
+        &self,
+        team: &Team,
+        date: NaiveDate,
+        highlight_type: HighlightType,
+        game_number: Option<u8>,
+        media_player: Option<&str>,
+    ) -> Result<()> {
+        let Some(team_games) = self
+            .fetch_schedule_by_date(&date)
+            .await?
+            .and_then(|s| s.find_team_games(team))
+        else {
+            tracing::info!("No games found for the {} on {}", team.name, date);
+            return Ok(());
+        };
+
+        let game_data = select_game(team_games, game_number)?;
+        let Some(url) = game_data.find_highlight(highlight_type, "highBit") else {
+            tracing::info!(
+                "No high bitrate {} found for the {} on {}",
+                highlight_type,
+                team.name,
+                date
+            );
+            return Ok(());
+        };
+
+        crate::player::play_stream_url(url, media_player)?;
+        Ok(())
+    }
 }
 
 impl DaySchedule {
@@ -180,6 +277,22 @@ impl DaySchedule {
             0 => None,             // Your team isn't playing today.
             _ => Some(team_games), // Your team has a game or doubleheader today.
         }
+    }
+}
+
+impl GameData {
+    fn find_highlight(&self, highlight_type: HighlightType, quality: &str) -> Option<String> {
+        self.content
+            .media
+            .epg_alternate
+            .as_ref()?
+            .iter()
+            .find(|h| h.title == highlight_type)?
+            .items
+            .iter()
+            .flat_map(|details| details.playbacks.iter())
+            .find(|pb| pb.name == quality)
+            .map(|pb| pb.url.clone())
     }
 }
 

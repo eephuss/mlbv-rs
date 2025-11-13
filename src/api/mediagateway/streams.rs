@@ -253,7 +253,7 @@ impl MlbSession<Authorized> {
         media_type: MediaType,
         feed_type: Option<FeedType>,
         game_number: Option<u8>,
-        media_player: Option<String>,
+        media_player: Option<&str>,
     ) -> Result<()> {
         // Fetch schedule and filter for team games on specified date.
         let Some(team_games) = self

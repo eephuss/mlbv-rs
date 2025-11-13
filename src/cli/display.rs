@@ -18,6 +18,8 @@ pub struct GameRow {
     pub state: String,
     #[tabled(rename = "Feeds")]
     pub feeds: String,
+    #[tabled(rename = "Highlights")]
+    pub highlights: String,
 }
 
 fn schedule_table_theme() -> Theme {
@@ -87,12 +89,25 @@ pub fn prepare_schedule_table(schedule: DaySchedule) -> Table {
             feeds.join(", ")
         };
 
+        let highlights = if let Some(highlights) = &game.content.media.epg_alternate {
+            let mut highlight_types: Vec<String> = highlights
+                .iter()
+                .map(|h| h.title.to_string())
+                .collect();
+
+            highlight_types.sort();
+            highlight_types.join(", ")
+        } else {
+            "None".to_string()
+        };
+
         rows.push(GameRow {
             matchup,
             series,
             score,
             state,
             feeds,
+            highlights,
         });
     }
     format_schedule_table(rows, &header_date)

@@ -35,7 +35,7 @@ pub struct Cli {
     #[arg(long)]
     pub yesterday: bool,
 
-    /// Number of days to display. Use negative number to go back from today.
+    /// Number of days to display; use negative number to go back from today
     #[arg(long, conflicts_with("team"))]
     pub days: Option<i64>,
 
@@ -43,9 +43,17 @@ pub struct Cli {
     #[arg(short, long)]
     pub feed: Option<FeedType>,
 
-    /// Return audio broadcasts only
+    /// Play audio broadcasts only
     #[arg(long)]
     pub audio: bool,
+
+    /// Play condensed game; user must specify a team
+    #[arg(short, long, conflicts_with("recap"), requires("team"))]
+    pub condensed: bool,
+
+    /// Play daily recaps
+    #[arg(short, long, conflicts_with("condensed"))]
+    pub recap: bool,
 
     /// Specify game number 1 or 2 for double-headers
     #[arg(short, long)]
@@ -59,11 +67,22 @@ pub struct Cli {
 pub enum CliMode {
     Init,
     PlayStream {
-        team: TeamCode,
+        team_code: TeamCode,
         date: chrono::NaiveDate,
         media_type: MediaType,
         feed_type: Option<FeedType>,
         game_number: Option<u8>,
+    },
+    PlayCondensedGame {
+        team_code: TeamCode,
+        date: chrono::NaiveDate,
+        game_number: Option<u8>,
+    },
+    PlayRecap {
+        date: chrono::NaiveDate,
+        team_code: Option<TeamCode>,
+        game_number: Option<u8>,
+        // filter: String,
     },
     RangeSchedule {
         start_date: chrono::NaiveDate,
@@ -99,9 +118,24 @@ impl Cli {
             MediaType::Video
         };
 
-        if let Some(team) = self.team {
+        if self.recap {
+            return Ok(CliMode::PlayRecap {
+                date,
+                team_code: self.team,
+                game_number: self.game_number,
+            });
+        }
+
+        if let Some(team_code) = self.team {
+            if self.condensed {
+                return Ok(CliMode::PlayCondensedGame {
+                    team_code,
+                    date,
+                    game_number: self.game_number,
+                });
+            }
             return Ok(CliMode::PlayStream {
-                team,
+                team_code,
                 date,
                 feed_type: self.feed,
                 game_number: self.game_number,

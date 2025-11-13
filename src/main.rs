@@ -16,6 +16,7 @@ mod data;
 mod player;
 
 use crate::api::session::MlbSession;
+use crate::api::stats::schedule;
 use crate::cli::Cli;
 use crate::cli::args::CliMode;
 use crate::cli::display;
@@ -50,31 +51,78 @@ async fn run() -> Result<()> {
         .init();
 
     let session = MlbSession::new()?;
+    let media_player = cfg.stream.video_player.as_deref();
 
     match mode {
         CliMode::Init => {
             AppConfig::generate_config()?;
         }
         CliMode::PlayStream {
-            team,
+            team_code,
             date,
             media_type,
             feed_type,
             game_number,
         } => {
-            let team = Team::find_by_code(team).ok_or_else(|| anyhow::anyhow!("Invalid team code"))?;
+            let team = team_code.team();
             session
                 .authorize(&cfg.credentials.username, &cfg.credentials.password)
                 .await?
-                .find_and_play_stream(
-                    team,
-                    date,
-                    media_type,
-                    feed_type,
-                    game_number,
-                    cfg.stream.video_player,
-                )
+                .find_and_play_stream(team, date, media_type, feed_type, game_number, media_player)
                 .await?;
+        }
+        CliMode::PlayCondensedGame {
+            team_code,
+            date,
+            game_number,
+        } => {
+            let team = team_code.team();
+            let highlight_type = schedule::HighlightType::CondensedGame;
+            session
+                .find_and_play_highlight(team, date, highlight_type, game_number, media_player)
+                .await?
+        }
+        CliMode::PlayRecap {
+            date,
+            team_code,
+            game_number,
+            // TODO: Implement filters for this mode.
+        } => {
+            let highlight_type = schedule::HighlightType::Recap;
+
+            // If user provided a team, fetch recap for that team
+            if let Some(team_code) = team_code {
+                let team = team_code.team();
+                session
+                    .find_and_play_highlight(team, date, highlight_type, game_number, media_player)
+                    .await?
+            } else if let Some(schedule) = session.fetch_schedule_by_date(&date).await? {
+                // If no team provided, fetch recaps for all teams on specified day.
+                let matchups: Vec<(String, String)> = schedule
+                    .games
+                    .into_iter()
+                    .map(|g| (g.teams.away.team.name, g.teams.home.team.name))
+                    .collect();
+
+                tracing::info!("Found {} recaps(s) for {date}:", matchups.len());
+                for (away, home) in &matchups {
+                    tracing::info!("    {} at {}", away, home);
+                }
+                for (away, home) in matchups {
+                    tracing::info!("Playing: {} at {}", away, home);
+                    let team = Team::find_by_name(&home)
+                        .ok_or_else(|| anyhow::anyhow!("Invalid team name"))?;
+                    session
+                        .find_and_play_highlight(
+                            team,
+                            date,
+                            highlight_type,
+                            game_number,
+                            media_player,
+                        )
+                        .await?
+                }
+            }
         }
         CliMode::RangeSchedule {
             start_date,

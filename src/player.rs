@@ -29,10 +29,10 @@ fn find_in_path(command: &str) -> anyhow::Result<PathBuf> {
     Ok(PathBuf::from(path))
 }
 
-fn resolve_media_player(media_player: Option<String>) -> io::Result<(String, Vec<String>)> {
+fn resolve_media_player(media_player: Option<&str>) -> io::Result<(String, Vec<String>)> {
     // Use specified player if found in PATH
     if let Some(m_player) = media_player
-        && let Ok(path) = find_in_path(m_player.as_str())
+        && let Ok(path) = find_in_path(m_player)
     {
         return Ok((path.to_string_lossy().into_owned(), Vec::new()));
     }
@@ -55,7 +55,7 @@ fn resolve_media_player(media_player: Option<String>) -> io::Result<(String, Vec
     }
 }
 
-pub fn play_stream_url(url: String, media_player: Option<String>) -> anyhow::Result<()> {
+pub fn play_stream_url(url: String, media_player: Option<&str>) -> anyhow::Result<()> {
     let (command, mut args) = resolve_media_player(media_player)?;
     args.push(url);
 

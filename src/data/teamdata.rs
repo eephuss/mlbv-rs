@@ -94,6 +94,12 @@ impl std::str::FromStr for TeamCode {
     }
 }
 
+impl TeamCode {
+    pub fn team(self) -> &'static Team {
+        Team::find_by_code(self)
+    }
+}
+
 #[derive(Copy, Clone, Debug)]
 #[allow(dead_code)] // Hush warnings until these are used.
 pub struct Team {
@@ -105,8 +111,15 @@ pub struct Team {
 
 impl Team {
     /// Find a team by its code (e.g., "wsh", "tor")
-    pub fn find_by_code(code: TeamCode) -> Option<&'static Team> {
-        TEAMS.iter().find(|team| team.code == code)
+    pub fn find_by_code(code: TeamCode) -> &'static Team {
+        TEAMS
+            .iter()
+            .find(|team| team.code == code)
+            .expect("TeamCode not found in TEAMS constant - this is a bug")
+    }
+
+    pub fn find_by_name(name: &str) -> Option<&'static Team> {
+        TEAMS.iter().find(|team| team.name == name)
     }
 }
 
