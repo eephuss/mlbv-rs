@@ -69,7 +69,11 @@ pub fn play_stream_url(url: String, media_player: Option<&str>) -> anyhow::Resul
     }
 }
 
-pub fn handle_playback_url(url: String, cli: &Cli, media_player: Option<&str>) -> anyhow::Result<()> {
+pub fn handle_playback_url(
+    url: String,
+    cli: &Cli,
+    media_player: Option<&str>,
+) -> anyhow::Result<()> {
     match cli.url {
         true => {
             println!("{url}");
