@@ -39,10 +39,11 @@ async fn run() -> Result<()> {
     let cli = Cli::parse();
     let mode = cli.to_mode()?;
 
-    let cfg = AppConfig::load()?;
-    let log_level = match cfg.debug {
-        true => tracing::Level::DEBUG,
-        false => tracing::Level::INFO,
+    let log_level = match cli.verbose {
+        0 => tracing::Level::WARN,
+        1 => tracing::Level::INFO,
+        2 => tracing::Level::DEBUG,
+        _ => tracing::Level::TRACE,
     };
     tracing_subscriber::fmt()
         .with_max_level(log_level)
@@ -50,6 +51,7 @@ async fn run() -> Result<()> {
         .compact()
         .init();
 
+    let cfg = AppConfig::load()?;
     let session = MlbSession::new()?;
     let media_player = cfg.stream.video_player.as_deref();
 

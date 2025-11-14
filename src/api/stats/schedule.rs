@@ -48,6 +48,7 @@ pub struct GameData {
     pub linescore: Linescore,
     pub broadcasts: Option<Vec<Broadcast>>, // May be missing for future-dated games.
     pub content: Content,
+    pub game_number: u8, // Used for double-headers
     pub games_in_series: u8,
     pub series_game_number: u8,
 }
@@ -219,12 +220,14 @@ impl<State> MlbSession<State> {
     }
 
     pub async fn fetch_schedule_by_date(&self, date: &NaiveDate) -> Result<Option<DaySchedule>> {
-        let resp = self.make_schedule_request(date, date).await?;
+        let mut dates = self.make_schedule_request(date, date).await?.dates;
 
-        match resp.dates.len() {
+        match dates.len() {
             0 => Ok(None), // If no games are scheduled, then no dates are returned.
-            1 => Ok(Some(resp.dates.into_iter().next().unwrap())),
-            n => anyhow::bail!("Expected 1 date but got {n} - possible API change."),
+            1 => Ok(dates.pop()),
+            n => anyhow::bail!(
+                "Expected exactly 1 schedule for {date} but got {n} - possible API change."
+            ),
         }
     }
 
@@ -294,38 +297,147 @@ impl GameData {
     }
 }
 
-pub fn select_game(team_games: Vec<GameData>, game_number: Option<u8>) -> Result<GameData> {
+pub fn select_game(mut team_games: Vec<GameData>, game_number: Option<u8>) -> Result<GameData> {
     match team_games.len() {
-        0 => anyhow::bail!("Got empty vector where at least 1 game was expected. Aborting."),
-        1 => Ok(team_games.into_iter().next().unwrap()), // Not much to do if there's only 1 game that day.
+        0 => anyhow::bail!("Expected at least 1 game but got 0; aborting"),
+        1 => Ok(team_games.pop().expect("len == 1; you should never see me")),
         _ => {
             // If a valid game_number is specified, return that game.
             if let Some(n) = game_number {
-                if [1, 2].contains(&n) {
-                    tracing::debug!("User requested game number {n}");
-                    Ok(team_games.into_iter().nth((n - 1) as usize).unwrap())
-                } else {
-                    tracing::warn!("User provided invalid game number: {n}");
-                    anyhow::bail!("Invalid game number")
+                if n != 1 && n != 2 {
+                    anyhow::bail!("Invalid game number - {n}");
                 }
-            } else {
-                tracing::debug!("Doubleheader deteced but no game number specified");
-
-                // If no game number provided, prefer live game. If no live games, return game 1.
-                // TODO: This assumes that the vector is ordered chronologically. May not be true.
-                //       Can use game_number attribute of GameData if needed.
-                let mut iter = team_games.into_iter();
-                let game_one = iter.next().unwrap();
-                let game_two = iter.next().unwrap();
-
-                if game_two.status.abstract_game_state == "Live" {
-                    tracing::info!("Game 2 is currently live; defaulting to live broadcast");
-                    Ok(game_two)
+                if let Some(pos) = team_games.iter().position(|g| g.game_number == n) {
+                    return Ok(team_games.swap_remove(pos));
                 } else {
-                    tracing::info!("Defaulting to Game 1");
-                    Ok(game_one)
+                    anyhow::bail!("Game {n} not found in schedule");
                 }
             }
+            tracing::info!("Doubleheader detected but no game number specified");
+
+            // Prefer live game; else game 1.
+            if let Some(pos) = team_games
+                .iter()
+                .position(|g| g.status.abstract_game_state == "Live")
+            {
+                tracing::info!("Live game found; selecting that game for playback");
+                return Ok(team_games.swap_remove(pos));
+            }
+            if let Some(pos) = team_games.iter().position(|g| g.game_number == 1) {
+                tracing::info!("No live game; defaulting to game 1 of doubleheader");
+                return Ok(team_games.swap_remove(pos));
+            }
+
+            // Defensive fallback (should be unreachable if API is consistent).
+            Ok(team_games.remove(0))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::str::FromStr;
+
+    fn mock_game(pk: u64, state: &str, game_number: u8) -> GameData {
+        GameData {
+            game_pk: pk,
+            game_date: "2024-10-01T19:00:00Z".to_string(),
+            status: GameStatus {
+                abstract_game_state: state.to_string(),
+            },
+            teams: Matchup {
+                home: GameTeamStats {
+                    team: GameTeam {
+                        name: "Washington Nationals".to_string(),
+                    },
+                },
+                away: GameTeamStats {
+                    team: GameTeam {
+                        name: "Toronto Blue Jays".to_string(),
+                    },
+                },
+            },
+            linescore: Linescore {
+                teams: ScoreTeams {
+                    home: Score { runs: Some(3) },
+                    away: Score { runs: Some(2) },
+                },
+            },
+            broadcasts: Some(vec![]),
+            content: Content {
+                media: Media {
+                    epg_alternate: None,
+                },
+            },
+            game_number,
+            games_in_series: 3,
+            series_game_number: 1,
+        }
+    }
+
+    #[test]
+    fn select_game_returns_single_game() {
+        let games = vec![mock_game(12345, "Final", 1)];
+        let result = select_game(games, None);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().game_pk, 12345);
+    }
+
+    #[test]
+    fn select_game_errors_on_empty_vector() {
+        let games = vec![];
+        let result = select_game(games, None);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn select_game_selects_by_game_number() {
+        let games = vec![mock_game(11111, "Final", 1), mock_game(22222, "Final", 2)];
+        let result = select_game(games, Some(2));
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().game_pk, 22222);
+    }
+
+    #[test]
+    fn select_game_prefers_live_game() {
+        let games = vec![mock_game(11111, "Final", 1), mock_game(22222, "Live", 2)];
+        let result = select_game(games, None);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().game_pk, 22222);
+    }
+
+    #[test]
+    fn select_game_defaults_to_game_one() {
+        let games = vec![mock_game(11111, "Final", 1), mock_game(22222, "Final", 2)];
+        let result = select_game(games, None);
+        assert!(result.is_ok());
+        assert_eq!(result.unwrap().game_pk, 11111);
+    }
+
+    #[test]
+    fn select_game_rejects_invalid_game_number() {
+        let games = vec![mock_game(11111, "Final", 1), mock_game(22222, "Final", 2)];
+        let result = select_game(games, Some(3));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn game_date_from_str_parses_valid_formats() {
+        assert!(GameDate::from_str("2024-10-01").is_ok());
+        assert!(GameDate::from_str("10-01-2024").is_ok());
+        assert!(GameDate::from_str("10/01/2024").is_ok());
+    }
+
+    #[test]
+    fn game_date_from_str_rejects_old_dates() {
+        let result = GameDate::from_str("2021-10-01");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn game_date_from_str_rejects_invalid_format() {
+        let result = GameDate::from_str("invalid-date");
+        assert!(result.is_err());
     }
 }

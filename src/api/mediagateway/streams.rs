@@ -333,3 +333,108 @@ impl ContentSearchResults {
             .find(|stream| stream.media_state.state != "OFF")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn mock_stream(feed_type: FeedType, media_type: MediaType, state: &str) -> StreamData {
+        StreamData {
+            media_id: format!("{:?}-{:?}", feed_type, media_type),
+            feed_type,
+            language: "en".to_string(),
+            media_state: MediaState {
+                state: state.to_string(),
+                media_type,
+            },
+        }
+    }
+
+    #[test]
+    fn select_feed_finds_exact_match() {
+        let results = ContentSearchResults {
+            content: vec![
+                mock_stream(FeedType::Home, MediaType::Video, "MEDIA_ON"),
+                mock_stream(FeedType::Away, MediaType::Video, "MEDIA_ON"),
+            ],
+        };
+
+        let feed = results.select_feed(MediaType::Video, FeedType::Home);
+        assert!(feed.is_some());
+        assert_eq!(feed.unwrap().feed_type, FeedType::Home);
+    }
+
+    #[test]
+    fn select_feed_ignores_off_streams() {
+        let results = ContentSearchResults {
+            content: vec![
+                mock_stream(FeedType::Home, MediaType::Video, "OFF"),
+                mock_stream(FeedType::Away, MediaType::Video, "MEDIA_ON"),
+            ],
+        };
+
+        let feed = results.select_feed(MediaType::Video, FeedType::Home);
+        assert!(feed.is_none());
+    }
+
+    #[test]
+    fn find_best_feed_prefers_requested_type() {
+        let results = ContentSearchResults {
+            content: vec![
+                mock_stream(FeedType::Network, MediaType::Video, "MEDIA_ON"),
+                mock_stream(FeedType::Home, MediaType::Video, "MEDIA_ON"),
+            ],
+        };
+
+        let feed = results.find_best_feed(MediaType::Video, FeedType::Home);
+        assert!(feed.is_some());
+        assert_eq!(feed.unwrap().feed_type, FeedType::Home);
+    }
+
+    #[test]
+    fn find_best_feed_falls_back_to_network() {
+        let results = ContentSearchResults {
+            content: vec![
+                mock_stream(FeedType::Network, MediaType::Video, "MEDIA_ON"),
+                mock_stream(FeedType::Away, MediaType::Video, "MEDIA_ON"),
+            ],
+        };
+
+        let feed = results.find_best_feed(MediaType::Video, FeedType::Home);
+        assert!(feed.is_some());
+        assert_eq!(feed.unwrap().feed_type, FeedType::Network);
+    }
+
+    #[test]
+    fn find_best_feed_tries_audio_when_video_unavailable() {
+        let results = ContentSearchResults {
+            content: vec![mock_stream(FeedType::Home, MediaType::Audio, "MEDIA_ON")],
+        };
+
+        let feed = results.find_best_feed(MediaType::Video, FeedType::Home);
+        assert!(feed.is_some());
+        assert_eq!(feed.unwrap().media_state.media_type, MediaType::Audio);
+    }
+
+    #[test]
+    fn find_best_feed_returns_none_when_all_off() {
+        let results = ContentSearchResults {
+            content: vec![
+                mock_stream(FeedType::Home, MediaType::Video, "OFF"),
+                mock_stream(FeedType::Away, MediaType::Video, "OFF"),
+            ],
+        };
+
+        let feed = results.find_best_feed(MediaType::Video, FeedType::Home);
+        assert!(feed.is_none());
+    }
+
+    #[test]
+    fn feed_type_from_str_parses_correctly() {
+        assert_eq!(FeedType::from_str("home").unwrap(), FeedType::Home);
+        assert_eq!(FeedType::from_str("HOME").unwrap(), FeedType::Home);
+        assert_eq!(FeedType::from_str("away").unwrap(), FeedType::Away);
+        assert_eq!(FeedType::from_str("national").unwrap(), FeedType::Network);
+        assert!(FeedType::from_str("invalid").is_err());
+    }
+}

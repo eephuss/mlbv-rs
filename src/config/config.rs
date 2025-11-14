@@ -7,7 +7,7 @@ use std::path::PathBuf;
 
 #[derive(Debug, Deserialize)]
 pub struct AppConfig {
-    pub debug: bool,
+    // pub debug: bool,
     pub credentials: Credentials,
     // pub favorites: Option<Favorites>,
     // pub display: Option<Display>,
