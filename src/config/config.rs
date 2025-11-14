@@ -2,7 +2,7 @@ use anyhow::Result;
 use directories::ProjectDirs;
 use serde::Deserialize;
 use std::fs;
-use std::io::{self, Write};
+use std::io::{self, IsTerminal, Write};
 use std::path::PathBuf;
 
 #[derive(Debug, Deserialize)]
@@ -55,12 +55,19 @@ pub fn project_dirs() -> ProjectDirs {
 
 impl AppConfig {
     fn prompt_credential(label: &str) -> io::Result<String> {
-        print!("Enter mlb.tv {}: ", label);
-        io::stdout().flush()?; // ensure prompt appears before waiting for input
+        if label.eq_ignore_ascii_case("password") {
+            // Mask password input
+            let pwd = rpassword::prompt_password("Enter mlb.tv password: ")
+                .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+            Ok(pwd.trim().to_string())
+        } else {
+            print!("Enter mlb.tv {}: ", label);
+            io::stdout().flush()?; // ensure prompt appears before waiting for input
 
-        let mut input = String::new();
-        io::stdin().read_line(&mut input)?;
-        Ok(input.trim().to_string())
+            let mut input = String::new();
+            io::stdin().read_line(&mut input)?;
+            Ok(input.trim().to_string())
+        }
     }
 
     pub fn generate_config() -> Result<()> {
@@ -71,6 +78,16 @@ impl AppConfig {
         let template_path = PathBuf::from("src/config/template.toml");
         if !template_path.exists() {
             anyhow::bail!("Template file not found at {}", template_path.display());
+        }
+
+        // Interactive terminal required for credential input
+        if !io::stdin().is_terminal() {
+            anyhow::bail!(
+                "Cannot run --init in non-interactive mode.\n\
+                 Please run this command in an interactive terminal, or manually create:\n\
+                 {:#?}",
+                 config_file
+            );
         }
 
         // Read the template into a string and prompt user for credentials
@@ -94,7 +111,7 @@ impl AppConfig {
 
         // ensure the config exists (creates from template if needed)
         if !config_file.exists() {
-            tracing::info!(
+            println!(
                 "Config file not found, creating from template at {}",
                 config_file.display()
             );

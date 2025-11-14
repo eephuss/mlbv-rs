@@ -259,7 +259,7 @@ impl MlbSession<Authorized> {
             .await?
             .and_then(|s| s.find_team_games(team))
         else {
-            tracing::info!("No games found for the {} on {}", team.name, date);
+            println!("No games found for the {} on {}", team.name, date);
             return Ok(None);
         };
 
@@ -276,7 +276,7 @@ impl MlbSession<Authorized> {
         // Fetch available streams for selected game.
         let stream_data = self.fetch_available_feeds(&game_data.game_pk).await?;
         let Some(stream_data) = stream_data.find_best_feed(media_type, feed_type) else {
-            tracing::warn!("No streams available; user may not have access to this content");
+            println!("No streams available; you may not have access to this content");
             return Ok(None);
         };
 

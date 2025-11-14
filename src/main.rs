@@ -115,12 +115,12 @@ async fn run() -> Result<()> {
                     .map(|g| (g.teams.away.team.name, g.teams.home.team.name))
                     .collect();
 
-                tracing::info!("Found {} recaps(s) for {date}:", matchups.len());
+                println!("Found {} recap(s) for {date}:", matchups.len());
                 for (away, home) in &matchups {
-                    tracing::info!("    {} at {}", away, home);
+                    println!("    {} at {}", away, home);
                 }
                 for (away, home) in matchups {
-                    tracing::info!("Playing: {} at {}", away, home);
+                    println!("Playing: {} at {}", away, home);
                     let team = Team::find_by_name(&home)
                         .ok_or_else(|| anyhow::anyhow!("Invalid team name"))?;
                     if let Some(url) = session

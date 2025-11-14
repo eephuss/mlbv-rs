@@ -243,13 +243,13 @@ impl<State> MlbSession<State> {
             .await?
             .and_then(|s| s.find_team_games(team))
         else {
-            tracing::info!("No games found for the {} on {}", team.name, date);
+            println!("No games found for the {} on {}", team.name, date);
             return Ok(None);
         };
 
         let game_data = select_game(team_games, game_number)?;
         let Some(url) = game_data.find_highlight(highlight_type, "highBit") else {
-            tracing::info!(
+            println!(
                 "No high bitrate {} found for the {} on {}",
                 highlight_type,
                 team.name,
