@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2024"
 authors = ["Tom Cole <mlbv_project@fastmail.com>"]
 license = "GPL-3.0-only"
+description = "Command-line interface for MLB.tv and MLB Stats API"
+repository = "https://github.com/eephuss/mlbv-rs"
+readme = "README.md"
 keywords = ["mlb", "cli", "streaming", "sports"]
 categories = ["command-line-utilities"]
 
