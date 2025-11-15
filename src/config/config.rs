@@ -58,7 +58,7 @@ impl AppConfig {
         if label.eq_ignore_ascii_case("password") {
             // Mask password input
             let pwd = rpassword::prompt_password("Enter mlb.tv password: ")
-                .map_err(|e| io::Error::new(io::ErrorKind::Other, e.to_string()))?;
+                .map_err(|e| io::Error::other(e.to_string()))?;
             Ok(pwd.trim().to_string())
         } else {
             print!("Enter mlb.tv {}: ", label);
