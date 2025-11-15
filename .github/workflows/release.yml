@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v*.*.*"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -14,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Publish Release
-        uses: axodotdev/cargo-dist-action@v0
+        uses: axodotdev/cargo-dist@v0.22.1
         with:
           tag: ${{ github.ref_name }}
         env:
