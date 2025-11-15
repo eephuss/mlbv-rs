@@ -251,9 +251,7 @@ impl<State> MlbSession<State> {
         let Some(url) = game_data.find_highlight(highlight_type, "highBit") else {
             println!(
                 "No high bitrate {} found for the {} on {}",
-                highlight_type,
-                team.name,
-                date
+                highlight_type, team.name, date
             );
             return Ok(None);
         };

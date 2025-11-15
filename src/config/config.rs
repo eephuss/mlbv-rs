@@ -86,7 +86,7 @@ impl AppConfig {
                 "Cannot run --init in non-interactive mode.\n\
                  Please run this command in an interactive terminal, or manually create:\n\
                  {:#?}",
-                 config_file
+                config_file
             );
         }
 
