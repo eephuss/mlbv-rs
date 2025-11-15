@@ -24,6 +24,13 @@ This project is a command-line interface to MLB.tv and MLB's stats API.
 - Display stats
 - Filter relevant displays
 
+## Installation
+
+Cargo (all platforms)
+  
+  `cargo install mlbv-rs`
+
+
 ## Attribution
 
 - Original project by [kmac](https://github.com/kmac/mlbv-archived)
