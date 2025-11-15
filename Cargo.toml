@@ -8,7 +8,7 @@ description = "Command-line interface for MLB.tv and MLB Stats API"
 repository = "https://github.com/eephuss/mlbv-rs"
 homepage = "https://github.com/eephuss/mlbv-rs"
 readme = "README.md"
-keywords = ["mlb", "mlb.tv", "cli", "streaming", "sports"]
+keywords = ["mlb", "cli", "streaming", "sports"]
 categories = ["command-line-utilities", "multimedia"]
 
 [profile.release]
