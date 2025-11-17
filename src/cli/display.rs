@@ -16,8 +16,10 @@ pub struct GameRow {
     pub score: String,
     #[tabled(rename = "State")]
     pub state: String,
-    #[tabled(rename = "Feeds")]
-    pub feeds: String,
+    #[tabled(rename = "TV")]
+    pub tv_feeds: String,
+    #[tabled(rename = "Radio")]
+    pub radio_feeds: String,
     #[tabled(rename = "Highlights")]
     pub highlights: String,
 }
@@ -29,6 +31,14 @@ fn schedule_table_theme() -> Theme {
         .remove_frame();
 
     Theme::from_style(style)
+}
+
+fn title_case_feed(feed: &str) -> String {
+    match feed {
+        "home" => "Home".to_string(),
+        "away" => "Away".to_string(),
+        other => other.to_string(),
+    }
 }
 
 pub fn format_schedule_table(game_rows: Vec<GameRow>, date_str: &str) -> tabled::Table {
@@ -74,14 +84,15 @@ pub fn prepare_schedule_table(schedule: DaySchedule) -> Table {
 
         let state = String::from(&game.status.abstract_game_state);
 
-        let feeds = if let Some(broadcasts) = &game.broadcasts {
-            let mut feeds: Vec<&str> = broadcasts
+        let tv_feeds = if let Some(broadcasts) = &game.broadcasts {
+            let mut feeds: Vec<String> = broadcasts
                 .iter()
                 .filter(|feed| feed.kind == "TV")
+                .filter(|feed| feed.language == "en")
                 .filter(|feed| feed.available_for_streaming)
                 .map(|feed| match feed.is_national {
-                    true => "national",
-                    false => &feed.home_away,
+                    true => "National".to_string(),
+                    false => title_case_feed(&feed.home_away),
                 })
                 .collect();
             feeds.sort();
@@ -90,9 +101,25 @@ pub fn prepare_schedule_table(schedule: DaySchedule) -> Table {
             "".to_string()
         };
 
+        let radio_feeds = if let Some(broadcasts) = &game.broadcasts {
+            let mut feeds: Vec<String> = broadcasts
+                .iter()
+                .filter(|feed| feed.kind != "TV")
+                .filter(|feed| feed.language == "en")
+                .filter(|feed| feed.available_for_streaming)
+                .map(|feed| title_case_feed(&feed.home_away))
+                .collect();
+            feeds.sort();
+            feeds.join(", ")
+        } else {
+            "".to_string()
+        };
+
         let highlights = if let Some(highlights) = &game.content.media.epg_alternate {
-            let mut highlight_types: Vec<String> =
-                highlights.iter().map(|h| h.title.to_string()).collect();
+            let mut highlight_types: Vec<String> = highlights
+                .iter()
+                .map(|h| h.title.to_string())
+                .collect();
 
             highlight_types.sort();
             highlight_types.join(", ")
@@ -105,7 +132,8 @@ pub fn prepare_schedule_table(schedule: DaySchedule) -> Table {
             series,
             score,
             state,
-            feeds,
+            tv_feeds,
+            radio_feeds,
             highlights,
         });
     }

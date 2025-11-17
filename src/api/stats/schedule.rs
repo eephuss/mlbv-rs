@@ -108,7 +108,7 @@ impl<'de> Deserialize<'de> for HighlightType {
 impl fmt::Display for HighlightType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            HighlightType::CondensedGame => write!(f, "Condensed Game"),
+            HighlightType::CondensedGame => write!(f, "Condensed"),
             HighlightType::Recap => write!(f, "Recap"),
         }
     }
@@ -163,7 +163,9 @@ pub struct Broadcast {
     pub kind: String,
     pub is_national: bool,
     pub home_away: String,
+    pub call_sign: String,
     pub available_for_streaming: bool,
+    pub language: String,
 }
 
 impl<State> MlbSession<State> {
