@@ -1,8 +1,12 @@
-use crate::api::stats::schedule::DaySchedule;
+use crate::{api::stats::schedule::DaySchedule, config::AppConfig, data::teamdata::Team};
 use chrono::{DateTime, Local};
 use tabled::{
     Table, Tabled,
-    settings::{Alignment, Concat, Style, Theme, object::Columns, style::HorizontalLine},
+    settings::{
+        Alignment, Color, Concat, Style, Theme,
+        object::{Columns, Rows},
+        style::HorizontalLine,
+    },
 };
 
 // Schedule display logic
@@ -41,20 +45,37 @@ fn title_case_feed(feed: &str) -> String {
     }
 }
 
-pub fn format_schedule_table(game_rows: Vec<GameRow>, date_str: &str) -> tabled::Table {
+pub fn format_schedule_table(
+    game_rows: Vec<GameRow>,
+    date_str: &str,
+    config: &AppConfig,
+) -> tabled::Table {
     let table_theme = schedule_table_theme();
 
-    let mut table = Table::new(game_rows);
+    let mut table = Table::new(&game_rows);
     table
         .with(table_theme)
         .modify((0, 0), date_str) // Replace matchup header with date + dow
         .modify(Columns::first(), Alignment::left()) // Left-align times
         .modify(Columns::one(3), Alignment::right()); // Right-align scores
 
+    if let Some(fav_teams) = &config.favorites.teams {
+        let team_names = fav_teams
+            .iter()
+            .map(|&code| Team::find_by_code(code).name)
+            .collect::<Vec<&'static str>>();
+        for (idx, row) in game_rows.iter().enumerate() {
+            let row_num = idx + 1;
+            if team_names.iter().any(|team| row.matchup.contains(team)) {
+                table.modify(Rows::one(row_num), Color::FG_BLUE);
+            }
+        }
+    }
+
     table
 }
 
-pub fn prepare_schedule_table(schedule: DaySchedule) -> Table {
+pub fn prepare_schedule_table(schedule: DaySchedule, config: &AppConfig) -> Table {
     let weekday = schedule.date.format("%A");
     let header_date = format!("{} {}", schedule.date, weekday);
 
@@ -78,9 +99,13 @@ pub fn prepare_schedule_table(schedule: DaySchedule) -> Table {
         let series_game_number = &game.series_game_number;
         let series = format!("{series_game_number}/{games_in_series}");
 
-        let away_score = &game.linescore.teams.away.runs.unwrap_or(0);
-        let home_score = &game.linescore.teams.home.runs.unwrap_or(0);
-        let score = format!("{away_score}-{home_score}");
+        let score = if let Some(linescore) = &game.linescore {
+            let away_score = &linescore.teams.away.runs.unwrap_or(0);
+            let home_score = &linescore.teams.home.runs.unwrap_or(0);
+            format!("{away_score}-{home_score}")
+        } else {
+            "".to_string()
+        };
 
         let state = String::from(&game.status.abstract_game_state);
 
@@ -115,12 +140,11 @@ pub fn prepare_schedule_table(schedule: DaySchedule) -> Table {
             "".to_string()
         };
 
-        let highlights = if let Some(highlights) = &game.content.media.epg_alternate {
-            let mut highlight_types: Vec<String> = highlights
-                .iter()
-                .map(|h| h.title.to_string())
-                .collect();
-
+        let highlights = if let Some(media) = &game.content.media
+            && let Some(highlights) = &media.epg_alternate
+        {
+            let mut highlight_types: Vec<String> =
+                highlights.iter().map(|h| h.title.to_string()).collect();
             highlight_types.sort();
             highlight_types.join(", ")
         } else {
@@ -137,16 +161,16 @@ pub fn prepare_schedule_table(schedule: DaySchedule) -> Table {
             highlights,
         });
     }
-    format_schedule_table(rows, &header_date)
+    format_schedule_table(rows, &header_date, config)
 }
 
-pub fn combine_schedule_tables(schedule: Vec<DaySchedule>) -> tabled::Table {
+pub fn combine_schedule_tables(schedule: Vec<DaySchedule>, config: &AppConfig) -> tabled::Table {
     let mut tables = Vec::new();
     let mut offsets = Vec::new();
     let mut total_rows = 0;
 
     for day in schedule {
-        let table = prepare_schedule_table(day);
+        let table = prepare_schedule_table(day, config);
         let rows = table.count_rows();
         tables.push(table);
         total_rows += rows;

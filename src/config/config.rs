@@ -5,22 +5,25 @@ use std::fs;
 use std::io::{self, IsTerminal, Write};
 use std::path::PathBuf;
 
+use crate::data::teamdata::TeamCode;
+
 #[derive(Debug, Deserialize)]
 pub struct AppConfig {
     // pub debug: bool,
     pub credentials: Credentials,
-    // pub favorites: Option<Favorites>,
+    pub favorites: Favorites,
     // pub display: Option<Display>,
     pub stream: Stream,
     // pub streamlink: Option<Streamlink>,
 }
 
-// #[derive(Debug, Deserialize)]
-// pub struct Favorites {
-//     pub teams: Option<Vec<String>>,
-//     pub color: Option<String>,
-//     pub critical_color: Option<String>,
-// }
+#[derive(Debug, Deserialize)]
+pub struct Favorites {
+    pub teams: Option<Vec<TeamCode>>,
+    // pub teams: Option<Vec<String>>,
+    // pub color: Option<String>,
+    // pub critical_color: Option<String>,
+}
 
 // #[derive(Debug, Deserialize)]
 // pub struct Display {

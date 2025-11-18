@@ -140,7 +140,7 @@ async fn run() -> Result<()> {
                 .fetch_schedule_by_range(&start_date, &end_date)
                 .await?
             {
-                let combined_table = display::combine_schedule_tables(schedule);
+                let combined_table = display::combine_schedule_tables(schedule, &cfg);
                 println!("{}", combined_table);
             } else {
                 println!("No games scheduled between {start_date} and {end_date}");
@@ -148,7 +148,7 @@ async fn run() -> Result<()> {
         }
         CliMode::DaySchedule { date } => {
             if let Some(schedule) = session.fetch_schedule_by_date(&date).await? {
-                let table = display::prepare_schedule_table(schedule);
+                let table = display::prepare_schedule_table(schedule, &cfg);
                 println!("{}", table)
             } else {
                 // TODO: Detect when in off-season and add cute "see you next spring!" message.

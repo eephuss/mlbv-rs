@@ -45,7 +45,7 @@ pub struct GameData {
     pub game_date: String,
     pub status: GameStatus,
     pub teams: Matchup,
-    pub linescore: Linescore,
+    pub linescore: Option<Linescore>, // May be missing for rescheduled games.
     pub broadcasts: Option<Vec<Broadcast>>, // May be missing for future-dated games.
     pub content: Content,
     pub game_number: u8, // Used for double-headers
@@ -67,7 +67,7 @@ pub struct Matchup {
 
 #[derive(Debug, Deserialize)]
 pub struct Content {
-    pub media: Media,
+    pub media: Option<Media>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -163,7 +163,6 @@ pub struct Broadcast {
     pub kind: String,
     pub is_national: bool,
     pub home_away: String,
-    pub call_sign: String,
     pub available_for_streaming: bool,
     pub language: String,
 }
@@ -285,6 +284,7 @@ impl GameData {
     fn find_highlight(&self, highlight_type: HighlightType, quality: &str) -> Option<String> {
         self.content
             .media
+            .as_ref()?
             .epg_alternate
             .as_ref()?
             .iter()
@@ -358,17 +358,17 @@ mod tests {
                     },
                 },
             },
-            linescore: Linescore {
+            linescore: Some(Linescore {
                 teams: ScoreTeams {
                     home: Score { runs: Some(3) },
                     away: Score { runs: Some(2) },
                 },
-            },
+            }),
             broadcasts: Some(vec![]),
             content: Content {
-                media: Media {
+                media: Some(Media {
                     epg_alternate: None,
-                },
+                }),
             },
             game_number,
             games_in_series: 3,

@@ -1,3 +1,6 @@
+use serde::Deserialize;
+use std::str::FromStr;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum League {
     American,
@@ -18,7 +21,8 @@ pub struct Division {
     pub league: League,
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, Deserialize, PartialEq)]
+#[serde(try_from = "String")]
 pub enum TeamCode {
     Ari,
     Ath,
@@ -53,7 +57,7 @@ pub enum TeamCode {
     Wsh,
 }
 
-impl std::str::FromStr for TeamCode {
+impl FromStr for TeamCode {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
@@ -78,6 +82,7 @@ impl std::str::FromStr for TeamCode {
             "MIA" => Ok(Self::Mia),
             "NYY" => Ok(Self::Nyy),
             "NYM" => Ok(Self::Nym),
+            "OAK" => Ok(Self::Ath), // Continue to map OAK to ATH
             "PHI" => Ok(Self::Phi),
             "PIT" => Ok(Self::Pit),
             "SDP" => Ok(Self::Sdp),
@@ -88,9 +93,16 @@ impl std::str::FromStr for TeamCode {
             "TEX" => Ok(Self::Tex),
             "TOR" => Ok(Self::Tor),
             "WSH" => Ok(Self::Wsh),
-            "OAK" => anyhow::bail!("The OAK code has been retired and replaced with ATH"),
             _ => anyhow::bail!("Invalid team code: {s}"),
         }
+    }
+}
+
+impl TryFrom<String> for TeamCode {
+    type Error = anyhow::Error;
+
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        TeamCode::from_str(&s)
     }
 }
 
