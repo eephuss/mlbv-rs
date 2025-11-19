@@ -136,20 +136,29 @@ async fn run() -> Result<()> {
             start_date,
             end_date,
         } => {
-            if let Some(schedule) = session
+            if let Some(schedules) = session
                 .fetch_schedule_by_range(&start_date, &end_date)
                 .await?
             {
-                let combined_table = display::combine_schedule_tables(schedule, &cfg);
-                println!("{}", combined_table);
+                for (idx, schedule) in schedules.into_iter().enumerate() {
+                    if idx > 0 {
+                        println!(); // Blank line between days
+                    }
+                    let (rows, header_date) = display::prepare_schedule_data(schedule);
+                    let table = display::create_schedule_table(rows, &header_date);
+                    let color_table = display::color_favorite_teams(table, &cfg);
+                    println!("{}", color_table);
+                }
             } else {
                 println!("No games scheduled between {start_date} and {end_date}");
             }
         }
         CliMode::DaySchedule { date } => {
             if let Some(schedule) = session.fetch_schedule_by_date(&date).await? {
-                let table = display::prepare_schedule_table(schedule, &cfg);
-                println!("{}", table)
+                let (rows, header_date) = display::prepare_schedule_data(schedule);
+                let table = display::create_schedule_table(rows, &header_date);
+                let color_table = display::color_favorite_teams(table, &cfg);
+                println!("{}", color_table)
             } else {
                 // TODO: Detect when in off-season and add cute "see you next spring!" message.
                 println!("No games scheduled for {date}");

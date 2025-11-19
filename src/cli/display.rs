@@ -3,7 +3,7 @@ use chrono::{DateTime, Local};
 use tabled::{
     Table, Tabled,
     settings::{
-        Alignment, Color, Concat, Style, Theme,
+        Alignment, Color, Style, Theme, Width,
         object::{Columns, Rows},
         style::HorizontalLine,
     },
@@ -28,6 +28,11 @@ pub struct GameRow {
     pub highlights: String,
 }
 
+pub struct ScheduleTable {
+    pub table: Table,
+    pub rows: Vec<GameRow>,
+}
+
 fn schedule_table_theme() -> Theme {
     let style = Style::modern()
         .remove_horizontal() // Remove internal horizontal lines
@@ -45,26 +50,34 @@ fn title_case_feed(feed: &str) -> String {
     }
 }
 
-pub fn format_schedule_table(
-    game_rows: Vec<GameRow>,
-    date_str: &str,
-    config: &AppConfig,
-) -> tabled::Table {
+pub fn create_schedule_table(rows: Vec<GameRow>, header_date_str: &str) -> ScheduleTable {
     let table_theme = schedule_table_theme();
 
-    let mut table = Table::new(&game_rows);
+    let mut table = Table::new(&rows);
     table
         .with(table_theme)
-        .modify((0, 0), date_str) // Replace matchup header with date + dow
-        .modify(Columns::first(), Alignment::left()) // Left-align times
-        .modify(Columns::one(3), Alignment::right()); // Right-align scores
+        .modify((0, 0), header_date_str) // Replace matchup header with date + dow
+        .modify(Columns::one(0), Alignment::left()) // Left-align times
+        .modify(Columns::one(0), Width::wrap(57).keep_words(true))
+        .modify(Columns::one(1), Width::wrap(7)) // Series
+        .modify(Columns::one(2), Width::wrap(7)) // Score
+        .modify(Columns::one(3), Width::wrap(10).keep_words(true)) // State
+        .modify(Columns::one(4), Width::wrap(12).keep_words(true)) // TV
+        .modify(Columns::one(5), Width::wrap(12).keep_words(true)) // Radio
+        .modify(Columns::one(6), Width::wrap(20).keep_words(true));
+
+    ScheduleTable { table, rows }
+}
+
+pub fn color_favorite_teams(sched_table: ScheduleTable, config: &AppConfig) -> Table {
+    let mut table = sched_table.table;
 
     if let Some(fav_teams) = &config.favorites.teams {
         let team_names = fav_teams
             .iter()
             .map(|&code| Team::find_by_code(code).name)
             .collect::<Vec<&'static str>>();
-        for (idx, row) in game_rows.iter().enumerate() {
+        for (idx, row) in sched_table.rows.iter().enumerate() {
             let row_num = idx + 1;
             if team_names.iter().any(|team| row.matchup.contains(team)) {
                 table.modify(Rows::one(row_num), Color::FG_BLUE);
@@ -75,7 +88,7 @@ pub fn format_schedule_table(
     table
 }
 
-pub fn prepare_schedule_table(schedule: DaySchedule, config: &AppConfig) -> Table {
+pub fn prepare_schedule_data(schedule: DaySchedule) -> (Vec<GameRow>, String) {
     let weekday = schedule.date.format("%A");
     let header_date = format!("{} {}", schedule.date, weekday);
 
@@ -161,39 +174,5 @@ pub fn prepare_schedule_table(schedule: DaySchedule, config: &AppConfig) -> Tabl
             highlights,
         });
     }
-    format_schedule_table(rows, &header_date, config)
-}
-
-pub fn combine_schedule_tables(schedule: Vec<DaySchedule>, config: &AppConfig) -> tabled::Table {
-    let mut tables = Vec::new();
-    let mut offsets = Vec::new();
-    let mut total_rows = 0;
-
-    for day in schedule {
-        let table = prepare_schedule_table(day, config);
-        let rows = table.count_rows();
-        tables.push(table);
-        total_rows += rows;
-        offsets.push(total_rows); // cumulative row index where next table starts
-    }
-
-    let mut combined_table: tabled::Table = tables
-        .into_iter()
-        .reduce(|mut acc, t| {
-            acc.with(Concat::vertical(t));
-            acc
-        })
-        .expect("Tables failed to combine");
-
-    let empty_line = tabled::grid::config::HorizontalLine::empty();
-    let header_line = HorizontalLine::inherit(Style::modern().remove_frame());
-
-    let mut theme = schedule_table_theme();
-    for &row in &offsets {
-        theme.insert_horizontal_line(row, empty_line);
-        theme.insert_horizontal_line(row + 1, header_line);
-    }
-    combined_table.with(theme);
-
-    combined_table
+    (rows, header_date)
 }
