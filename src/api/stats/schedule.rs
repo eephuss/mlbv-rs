@@ -108,8 +108,8 @@ impl<'de> Deserialize<'de> for HighlightType {
 impl fmt::Display for HighlightType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            HighlightType::CondensedGame => write!(f, "Condensed"),
-            HighlightType::Recap => write!(f, "Recap"),
+            HighlightType::CondensedGame => write!(f, "Cnd"),
+            HighlightType::Recap => write!(f, "Rcp"),
         }
     }
 }
@@ -135,6 +135,7 @@ pub struct GameTeamStats {
 
 #[derive(Debug, Deserialize)]
 pub struct GameTeam {
+    pub id: u32,
     pub name: String,
 }
 
@@ -349,11 +350,13 @@ mod tests {
             teams: Matchup {
                 home: GameTeamStats {
                     team: GameTeam {
+                        id: 120,
                         name: "Washington Nationals".to_string(),
                     },
                 },
                 away: GameTeamStats {
                     team: GameTeam {
+                        id: 141,
                         name: "Toronto Blue Jays".to_string(),
                     },
                 },

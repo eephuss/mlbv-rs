@@ -118,6 +118,7 @@ pub struct Team {
     pub id: u32,
     pub code: TeamCode,
     pub name: &'static str,
+    pub nickname: &'static str,
     pub division: &'static Division,
 }
 
@@ -132,6 +133,13 @@ impl Team {
 
     pub fn find_by_name(name: &str) -> Option<&'static Team> {
         TEAMS.iter().find(|team| team.name == name)
+    }
+
+    pub fn find_by_id(id: &u32) -> &'static Team {
+        TEAMS
+            .iter()
+            .find(|team| team.id == *id)
+            .expect("Team ID not found in TEAMS constant - this is a bug")
     }
 }
 
@@ -166,180 +174,210 @@ pub const TEAMS: &[Team] = &[
         id: 108,
         code: TeamCode::Laa,
         name: "Los Angeles Angels",
+        nickname: "Angels",
         division: &AL_WEST,
     },
     Team {
         id: 109,
         code: TeamCode::Ari,
         name: "Arizona Diamondbacks",
+        nickname: "Diamondbacks",
         division: &NL_WEST,
     },
     Team {
         id: 110,
         code: TeamCode::Bal,
         name: "Baltimore Orioles",
+        nickname: "Orioles",
         division: &AL_EAST,
     },
     Team {
         id: 111,
         code: TeamCode::Bos,
         name: "Boston Red Sox",
+        nickname: "Red Sox",
         division: &AL_EAST,
     },
     Team {
         id: 112,
         code: TeamCode::Chc,
         name: "Chicago Cubs",
+        nickname: "Cubs",
         division: &NL_CENTRAL,
     },
     Team {
         id: 113,
         code: TeamCode::Cin,
         name: "Cincinnati Reds",
+        nickname: "Reds",
         division: &NL_CENTRAL,
     },
     Team {
         id: 114,
         code: TeamCode::Cle,
         name: "Cleveland Guardians",
+        nickname: "Guardians",
         division: &AL_CENTRAL,
     },
     Team {
         id: 115,
         code: TeamCode::Col,
         name: "Colorado Rockies",
+        nickname: "Rockies",
         division: &NL_WEST,
     },
     Team {
         id: 116,
         code: TeamCode::Det,
         name: "Detroit Tigers",
+        nickname: "Tigers",
         division: &AL_CENTRAL,
     },
     Team {
         id: 117,
         code: TeamCode::Hou,
         name: "Houston Astros",
+        nickname: "Astros",
         division: &AL_WEST,
     },
     Team {
         id: 118,
         code: TeamCode::Kcr,
         name: "Kansas City Royals",
+        nickname: "Royals",
         division: &AL_CENTRAL,
     },
     Team {
         id: 119,
         code: TeamCode::Lad,
         name: "Los Angeles Dodgers",
+        nickname: "Dodgers",
         division: &NL_WEST,
     },
     Team {
         id: 120,
         code: TeamCode::Wsh,
         name: "Washington Nationals",
+        nickname: "Nationals",
         division: &NL_EAST,
     },
     Team {
         id: 121,
         code: TeamCode::Nym,
         name: "New York Mets",
+        nickname: "Mets",
         division: &NL_EAST,
     },
     Team {
         id: 133,
         code: TeamCode::Ath, // TODO: Change code if they ever make it to Vegas. LVA?
         name: "Athletics",   // TODO: Update/re-add city name too.
+        nickname: "Athletics",
         division: &AL_WEST,
     },
     Team {
         id: 134,
         code: TeamCode::Pit,
         name: "Pittsburgh Pirates",
+        nickname: "Pirates",
         division: &NL_CENTRAL,
     },
     Team {
         id: 135,
         code: TeamCode::Sdp,
         name: "San Diego Padres",
+        nickname: "Padres",
         division: &NL_WEST,
     },
     Team {
         id: 136,
         code: TeamCode::Sea,
         name: "Seattle Mariners",
+        nickname: "Mariners",
         division: &AL_WEST,
     },
     Team {
         id: 137,
         code: TeamCode::Sfg,
         name: "San Francisco Giants",
+        nickname: "Giants",
         division: &NL_WEST,
     },
     Team {
         id: 138,
         code: TeamCode::Stl,
         name: "St. Louis Cardinals",
+        nickname: "Cardinals",
         division: &NL_CENTRAL,
     },
     Team {
         id: 139,
         code: TeamCode::Tbr,
         name: "Tampa Bay Rays",
+        nickname: "Rays",
         division: &AL_EAST,
     },
     Team {
         id: 140,
         code: TeamCode::Tex,
         name: "Texas Rangers",
+        nickname: "Rangers",
         division: &AL_WEST,
     },
     Team {
         id: 141,
         code: TeamCode::Tor,
         name: "Toronto Blue Jays",
+        nickname: "Blue Jays",
         division: &AL_EAST,
     },
     Team {
         id: 142,
         code: TeamCode::Min,
         name: "Minnesota Twins",
+        nickname: "Twins",
         division: &AL_CENTRAL,
     },
     Team {
         id: 143,
         code: TeamCode::Phi,
         name: "Philadelphia Phillies",
+        nickname: "Phillies",
         division: &NL_EAST,
     },
     Team {
         id: 144,
         code: TeamCode::Atl,
         name: "Atlanta Braves",
+        nickname: "Braves",
         division: &NL_EAST,
     },
     Team {
         id: 145,
         code: TeamCode::Cws,
         name: "Chicago White Sox",
+        nickname: "White Sox",
         division: &AL_CENTRAL,
     },
     Team {
         id: 146,
         code: TeamCode::Mia,
         name: "Miami Marlins",
+        nickname: "Marlins",
         division: &NL_EAST,
     },
     Team {
         id: 147,
         code: TeamCode::Nyy,
         name: "New York Yankees",
+        nickname: "Yankees",
         division: &AL_EAST,
     },
     Team {
         id: 158,
         code: TeamCode::Mil,
         name: "Milwaukee Brewers",
+        nickname: "Brewers",
         division: &NL_CENTRAL,
     },
 ];

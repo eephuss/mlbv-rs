@@ -58,13 +58,14 @@ pub fn create_schedule_table(rows: Vec<GameRow>, header_date_str: &str) -> Sched
         .with(table_theme)
         .modify((0, 0), header_date_str) // Replace matchup header with date + dow
         .modify(Columns::one(0), Alignment::left()) // Left-align times
-        .modify(Columns::one(0), Width::wrap(57).keep_words(true))
+        .modify(Columns::one(0), Width::increase(34)) // Set minimum width for matchup column
+        .modify(Columns::one(0), Width::wrap(34).keep_words(true)) // Wrap to next line if too long
         .modify(Columns::one(1), Width::wrap(7)) // Series
         .modify(Columns::one(2), Width::wrap(7)) // Score
         .modify(Columns::one(3), Width::wrap(10).keep_words(true)) // State
         .modify(Columns::one(4), Width::wrap(12).keep_words(true)) // TV
         .modify(Columns::one(5), Width::wrap(12).keep_words(true)) // Radio
-        .modify(Columns::one(6), Width::wrap(20).keep_words(true));
+        .modify(Columns::one(6), Width::wrap(12).keep_words(true));
 
     ScheduleTable { table, rows }
 }
@@ -98,14 +99,14 @@ pub fn prepare_schedule_data(schedule: DaySchedule) -> (Vec<GameRow>, String) {
         let game_time = DateTime::parse_from_rfc3339(&game.game_date)
             .map(|dt| {
                 dt.with_timezone(&Local)
-                    .format("%I:%M %p")
+                    .format("%I:%M%p")
                     .to_string()
                     .to_lowercase()
             })
             .unwrap_or_else(|_| "TBD".to_string());
 
-        let away_team = &game.teams.away.team.name;
-        let home_team = &game.teams.home.team.name;
+        let away_team = Team::find_by_id(&game.teams.away.team.id).nickname;
+        let home_team = Team::find_by_id(&game.teams.home.team.id).nickname;
         let matchup = format!("{game_time} - {away_team} at {home_team}");
 
         let games_in_series = &game.games_in_series;
