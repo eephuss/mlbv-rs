@@ -58,8 +58,8 @@ pub fn create_schedule_table(rows: Vec<GameRow>, header_date_str: &str) -> Sched
         .with(table_theme)
         .modify((0, 0), header_date_str) // Replace matchup header with date + dow
         .modify(Columns::one(0), Alignment::left()) // Left-align times
-        .modify(Columns::one(0), Width::increase(34)) // Set minimum width for matchup column
-        .modify(Columns::one(0), Width::wrap(34).keep_words(true)) // Wrap to next line if too long
+        .modify(Columns::one(0), Width::increase(35)) // Set minimum width for matchup column
+        .modify(Columns::one(0), Width::wrap(35).keep_words(true)) // Wrap to next line if too long
         .modify(Columns::one(1), Width::wrap(7)) // Series
         .modify(Columns::one(2), Width::wrap(7)) // Score
         .modify(Columns::one(3), Width::wrap(10).keep_words(true)) // State
@@ -76,12 +76,13 @@ pub fn color_favorite_teams(sched_table: ScheduleTable, config: &AppConfig) -> T
     if let Some(fav_teams) = &config.favorites.teams {
         let team_names = fav_teams
             .iter()
-            .map(|&code| Team::find_by_code(code).name)
+            .map(|&code| Team::find_by_code(code).nickname)
             .collect::<Vec<&'static str>>();
+        
         for (idx, row) in sched_table.rows.iter().enumerate() {
             let row_num = idx + 1;
             if team_names.iter().any(|team| row.matchup.contains(team)) {
-                table.modify(Rows::one(row_num), Color::FG_BLUE);
+                table.modify(Rows::one(row_num), Color::rgb_fg(239, 159, 118));
             }
         }
     }
