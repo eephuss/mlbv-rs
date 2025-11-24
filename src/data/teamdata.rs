@@ -120,6 +120,36 @@ pub struct Team {
     pub name: &'static str,
     pub nickname: &'static str,
     pub division: &'static Division,
+    pub primary_color: TeamColor,
+}
+
+#[derive(Copy, Clone, Debug)]
+pub enum TeamColor {
+    Red,
+    Blue,
+    Orange,
+    Green,
+    Yellow,
+    Magenta,
+    Cyan,
+    // Black,
+    White,
+}
+
+impl TeamColor {
+    pub fn to_tabled_color(self) -> tabled::settings::Color {
+        match self {
+            TeamColor::Red => tabled::settings::Color::FG_RED,
+            TeamColor::Blue => tabled::settings::Color::FG_BLUE,
+            TeamColor::Orange => tabled::settings::Color::FG_BRIGHT_RED, // No orange in ANSI
+            TeamColor::Green => tabled::settings::Color::FG_GREEN,
+            TeamColor::Yellow => tabled::settings::Color::FG_YELLOW,
+            TeamColor::Magenta => tabled::settings::Color::FG_MAGENTA,
+            TeamColor::Cyan => tabled::settings::Color::FG_CYAN,
+            // TeamColor::Black => tabled::settings::Color::FG_BRIGHT_BLACK, // Needs to be visible
+            TeamColor::White => tabled::settings::Color::FG_WHITE,
+        }
+    }
 }
 
 impl Team {
@@ -176,6 +206,7 @@ pub const TEAMS: &[Team] = &[
         name: "Los Angeles Angels",
         nickname: "Angels",
         division: &AL_WEST,
+        primary_color: TeamColor::Red,
     },
     Team {
         id: 109,
@@ -183,6 +214,7 @@ pub const TEAMS: &[Team] = &[
         name: "Arizona Diamondbacks",
         nickname: "Diamondbacks",
         division: &NL_WEST,
+        primary_color: TeamColor::Red,
     },
     Team {
         id: 110,
@@ -190,6 +222,7 @@ pub const TEAMS: &[Team] = &[
         name: "Baltimore Orioles",
         nickname: "Orioles",
         division: &AL_EAST,
+        primary_color: TeamColor::Orange,
     },
     Team {
         id: 111,
@@ -197,6 +230,7 @@ pub const TEAMS: &[Team] = &[
         name: "Boston Red Sox",
         nickname: "Red Sox",
         division: &AL_EAST,
+        primary_color: TeamColor::Red,
     },
     Team {
         id: 112,
@@ -204,6 +238,7 @@ pub const TEAMS: &[Team] = &[
         name: "Chicago Cubs",
         nickname: "Cubs",
         division: &NL_CENTRAL,
+        primary_color: TeamColor::Blue,
     },
     Team {
         id: 113,
@@ -211,6 +246,7 @@ pub const TEAMS: &[Team] = &[
         name: "Cincinnati Reds",
         nickname: "Reds",
         division: &NL_CENTRAL,
+        primary_color: TeamColor::Red,
     },
     Team {
         id: 114,
@@ -218,6 +254,7 @@ pub const TEAMS: &[Team] = &[
         name: "Cleveland Guardians",
         nickname: "Guardians",
         division: &AL_CENTRAL,
+        primary_color: TeamColor::Red,
     },
     Team {
         id: 115,
@@ -225,6 +262,7 @@ pub const TEAMS: &[Team] = &[
         name: "Colorado Rockies",
         nickname: "Rockies",
         division: &NL_WEST,
+        primary_color: TeamColor::Magenta,
     },
     Team {
         id: 116,
@@ -232,6 +270,7 @@ pub const TEAMS: &[Team] = &[
         name: "Detroit Tigers",
         nickname: "Tigers",
         division: &AL_CENTRAL,
+        primary_color: TeamColor::Blue,
     },
     Team {
         id: 117,
@@ -239,6 +278,7 @@ pub const TEAMS: &[Team] = &[
         name: "Houston Astros",
         nickname: "Astros",
         division: &AL_WEST,
+        primary_color: TeamColor::Orange,
     },
     Team {
         id: 118,
@@ -246,6 +286,7 @@ pub const TEAMS: &[Team] = &[
         name: "Kansas City Royals",
         nickname: "Royals",
         division: &AL_CENTRAL,
+        primary_color: TeamColor::Blue,
     },
     Team {
         id: 119,
@@ -253,6 +294,7 @@ pub const TEAMS: &[Team] = &[
         name: "Los Angeles Dodgers",
         nickname: "Dodgers",
         division: &NL_WEST,
+        primary_color: TeamColor::Blue,
     },
     Team {
         id: 120,
@@ -260,6 +302,7 @@ pub const TEAMS: &[Team] = &[
         name: "Washington Nationals",
         nickname: "Nationals",
         division: &NL_EAST,
+        primary_color: TeamColor::Red,
     },
     Team {
         id: 121,
@@ -267,6 +310,7 @@ pub const TEAMS: &[Team] = &[
         name: "New York Mets",
         nickname: "Mets",
         division: &NL_EAST,
+        primary_color: TeamColor::Blue,
     },
     Team {
         id: 133,
@@ -274,6 +318,7 @@ pub const TEAMS: &[Team] = &[
         name: "Athletics",   // TODO: Update/re-add city name too.
         nickname: "Athletics",
         division: &AL_WEST,
+        primary_color: TeamColor::Green,
     },
     Team {
         id: 134,
@@ -281,6 +326,7 @@ pub const TEAMS: &[Team] = &[
         name: "Pittsburgh Pirates",
         nickname: "Pirates",
         division: &NL_CENTRAL,
+        primary_color: TeamColor::Yellow,
     },
     Team {
         id: 135,
@@ -288,6 +334,7 @@ pub const TEAMS: &[Team] = &[
         name: "San Diego Padres",
         nickname: "Padres",
         division: &NL_WEST,
+        primary_color: TeamColor::Yellow,
     },
     Team {
         id: 136,
@@ -295,6 +342,7 @@ pub const TEAMS: &[Team] = &[
         name: "Seattle Mariners",
         nickname: "Mariners",
         division: &AL_WEST,
+        primary_color: TeamColor::Cyan,
     },
     Team {
         id: 137,
@@ -302,6 +350,7 @@ pub const TEAMS: &[Team] = &[
         name: "San Francisco Giants",
         nickname: "Giants",
         division: &NL_WEST,
+        primary_color: TeamColor::Orange,
     },
     Team {
         id: 138,
@@ -309,6 +358,7 @@ pub const TEAMS: &[Team] = &[
         name: "St. Louis Cardinals",
         nickname: "Cardinals",
         division: &NL_CENTRAL,
+        primary_color: TeamColor::Red,
     },
     Team {
         id: 139,
@@ -316,6 +366,7 @@ pub const TEAMS: &[Team] = &[
         name: "Tampa Bay Rays",
         nickname: "Rays",
         division: &AL_EAST,
+        primary_color: TeamColor::Green,
     },
     Team {
         id: 140,
@@ -323,6 +374,7 @@ pub const TEAMS: &[Team] = &[
         name: "Texas Rangers",
         nickname: "Rangers",
         division: &AL_WEST,
+        primary_color: TeamColor::Blue,
     },
     Team {
         id: 141,
@@ -330,6 +382,7 @@ pub const TEAMS: &[Team] = &[
         name: "Toronto Blue Jays",
         nickname: "Blue Jays",
         division: &AL_EAST,
+        primary_color: TeamColor::Blue,
     },
     Team {
         id: 142,
@@ -337,6 +390,7 @@ pub const TEAMS: &[Team] = &[
         name: "Minnesota Twins",
         nickname: "Twins",
         division: &AL_CENTRAL,
+        primary_color: TeamColor::Red,
     },
     Team {
         id: 143,
@@ -344,6 +398,7 @@ pub const TEAMS: &[Team] = &[
         name: "Philadelphia Phillies",
         nickname: "Phillies",
         division: &NL_EAST,
+        primary_color: TeamColor::Red,
     },
     Team {
         id: 144,
@@ -351,6 +406,7 @@ pub const TEAMS: &[Team] = &[
         name: "Atlanta Braves",
         nickname: "Braves",
         division: &NL_EAST,
+        primary_color: TeamColor::Red,
     },
     Team {
         id: 145,
@@ -358,6 +414,7 @@ pub const TEAMS: &[Team] = &[
         name: "Chicago White Sox",
         nickname: "White Sox",
         division: &AL_CENTRAL,
+        primary_color: TeamColor::White,
     },
     Team {
         id: 146,
@@ -365,6 +422,7 @@ pub const TEAMS: &[Team] = &[
         name: "Miami Marlins",
         nickname: "Marlins",
         division: &NL_EAST,
+        primary_color: TeamColor::Cyan,
     },
     Team {
         id: 147,
@@ -372,6 +430,7 @@ pub const TEAMS: &[Team] = &[
         name: "New York Yankees",
         nickname: "Yankees",
         division: &AL_EAST,
+        primary_color: TeamColor::Blue,
     },
     Team {
         id: 158,
@@ -379,5 +438,6 @@ pub const TEAMS: &[Team] = &[
         name: "Milwaukee Brewers",
         nickname: "Brewers",
         division: &NL_CENTRAL,
+        primary_color: TeamColor::Blue,
     },
 ];

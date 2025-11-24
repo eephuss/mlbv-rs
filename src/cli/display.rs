@@ -1,9 +1,13 @@
-use crate::{api::stats::schedule::DaySchedule, config::AppConfig, data::teamdata::Team};
+use crate::{
+    api::stats::schedule::DaySchedule,
+    config::{AppConfig, ConfigColor},
+    data::teamdata::Team,
+};
 use chrono::{DateTime, Local};
 use tabled::{
     Table, Tabled,
     settings::{
-        Alignment, Color, Style, Theme, Width,
+        Alignment, Style, Theme, Width,
         object::{Columns, Rows},
         style::HorizontalLine,
     },
@@ -74,15 +78,28 @@ pub fn color_favorite_teams(sched_table: ScheduleTable, config: &AppConfig) -> T
     let mut table = sched_table.table;
 
     if let Some(fav_teams) = &config.favorites.teams {
-        let team_names = fav_teams
-            .iter()
-            .map(|&code| Team::find_by_code(code).nickname)
-            .collect::<Vec<&'static str>>();
-        
+        let fav_color = config
+            .favorites
+            .color
+            .as_ref()
+            .unwrap_or(&ConfigColor::TeamColors);
+
         for (idx, row) in sched_table.rows.iter().enumerate() {
             let row_num = idx + 1;
-            if team_names.iter().any(|team| row.matchup.contains(team)) {
-                table.modify(Rows::one(row_num), Color::rgb_fg(239, 159, 118));
+
+            let matched_team = fav_teams.iter().find_map(|&code| {
+                let team = Team::find_by_code(code);
+                if row.matchup.contains(team.nickname) {
+                    Some(code)
+                } else {
+                    None
+                }
+            });
+
+            if let Some(team_code) = matched_team
+                && let Some(color) = fav_color.to_tabled_color(Some(team_code))
+            {
+                table.modify(Rows::one(row_num), color);
             }
         }
     }

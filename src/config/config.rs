@@ -1,9 +1,11 @@
 use anyhow::Result;
 use directories::ProjectDirs;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::fs;
 use std::io::{self, IsTerminal, Write};
 use std::path::PathBuf;
+use std::str::FromStr;
+use tabled::settings::Color;
 
 use crate::data::teamdata::TeamCode;
 
@@ -21,7 +23,7 @@ pub struct AppConfig {
 pub struct Favorites {
     pub teams: Option<Vec<TeamCode>>,
     // pub teams: Option<Vec<String>>,
-    // pub color: Option<String>,
+    pub color: Option<ConfigColor>,
     // pub critical_color: Option<String>,
 }
 
@@ -50,6 +52,36 @@ pub struct Stream {
 pub struct Credentials {
     pub username: String,
     pub password: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(untagged)]
+pub enum ConfigColor {
+    Named(String),
+    TeamColors,
+}
+
+impl ConfigColor {
+    pub fn to_tabled_color(&self, team_code: Option<TeamCode>) -> Option<Color> {
+        match self {
+            ConfigColor::Named(name) => parse_named_color(name),
+            ConfigColor::TeamColors => {
+                team_code.map(|code| code.team().primary_color.to_tabled_color())
+            }
+        }
+    }
+}
+
+impl FromStr for ConfigColor {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s.eq_ignore_ascii_case("team") {
+            Ok(ConfigColor::TeamColors)
+        } else {
+            Ok(ConfigColor::Named(s.to_string()))
+        }
+    }
 }
 
 pub fn project_dirs() -> ProjectDirs {
@@ -127,5 +159,19 @@ impl AppConfig {
         let parsed: AppConfig = toml::from_str(&contents)?;
 
         Ok(parsed)
+    }
+}
+
+fn parse_named_color(name: &str) -> Option<Color> {
+    match name.to_lowercase().as_str() {
+        "black" => Some(Color::FG_BLACK),
+        "red" => Some(Color::FG_RED),
+        "green" => Some(Color::FG_GREEN),
+        "yellow" => Some(Color::FG_YELLOW),
+        "blue" => Some(Color::FG_BLUE),
+        "magenta" | "purple" => Some(Color::FG_MAGENTA),
+        "cyan" => Some(Color::FG_CYAN),
+        "white" => Some(Color::FG_WHITE),
+        _ => None,
     }
 }
