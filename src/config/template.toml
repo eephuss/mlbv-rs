@@ -28,7 +28,7 @@ teams = ["wsh", "tor"]
 # Available colors:
 #   black, red, green, orange, blue, purple, cyan, lightgrey, darkgrey,
 #   lightred, lightgreen, yellow, lightblue, pink, lightcyan
-color = "blue"
+color = "team"
 
 # color used to highlight games in 'critical' state
 critical_color = "yellow"

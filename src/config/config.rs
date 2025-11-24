@@ -11,35 +11,69 @@ use crate::data::teamdata::TeamCode;
 
 #[derive(Debug, Deserialize)]
 pub struct AppConfig {
-    // pub debug: bool,
     pub credentials: Credentials,
+
+    #[serde(default)]
     pub favorites: Favorites,
-    // pub display: Option<Display>,
+
+    // #[serde(default)]
+    // pub display: Display,
+    #[serde(default)]
     pub stream: Stream,
     // pub streamlink: Option<Streamlink>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct Favorites {
-    pub teams: Option<Vec<TeamCode>>,
-    // pub teams: Option<Vec<String>>,
-    pub color: Option<ConfigColor>,
-    // pub critical_color: Option<String>,
+    pub teams: Vec<TeamCode>,
+
+    #[serde(default)]
+    pub color: ConfigColor,
+    // pub critical_color: ConfigColor,
+}
+
+impl Default for Favorites {
+    fn default() -> Self {
+        Self {
+            teams: Vec::new(), // Won't match any teams by default
+            color: ConfigColor::TeamColors,
+            // critical_color: ConfigColor::Named("yellow".to_string()),
+        }
+    }
 }
 
 // #[derive(Debug, Deserialize)]
 // pub struct Display {
-//     pub scores: Option<bool>,
-//     pub linescore: Option<bool>,
-//     pub timeformat: Option<String>,
-//     pub stats_limit: Option<u32>,
+//     pub scores: bool,
+//     pub linescore: bool,
+//     pub timeformat: String,
+//     pub stats_limit: u32,
+// }
+
+// impl Default for Display {
+//     fn default() -> Self {
+//         Self {
+//             scores: true,
+//             linescore: true,
+//             timeformat: "%I:%M %p".to_string(),
+//             stats_limit: 5,
+//         }
+//     }
 // }
 
 #[derive(Debug, Deserialize)]
 pub struct Stream {
-    // pub resolution: Option<String>,
-    pub video_player: Option<String>,
-    // add other stream fields as needed
+    // pub resolution: String,
+    pub video_player: String,
+}
+
+impl Default for Stream {
+    fn default() -> Self {
+        Self {
+            // resolution: "1080p".to_string(),
+            video_player: "mpv".to_string(),
+        }
+    }
 }
 
 // #[derive(Debug, Deserialize)]
@@ -55,10 +89,16 @@ pub struct Credentials {
 }
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(untagged)]
+#[serde(try_from = "String")]
 pub enum ConfigColor {
     Named(String),
     TeamColors,
+}
+
+impl Default for ConfigColor {
+    fn default() -> Self {
+        ConfigColor::TeamColors
+    }
 }
 
 impl ConfigColor {
@@ -81,6 +121,14 @@ impl FromStr for ConfigColor {
         } else {
             Ok(ConfigColor::Named(s.to_string()))
         }
+    }
+}
+
+impl TryFrom<String> for ConfigColor {
+    type Error = anyhow::Error;
+
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        ConfigColor::from_str(&s)
     }
 }
 

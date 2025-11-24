@@ -53,7 +53,7 @@ async fn run() -> Result<()> {
 
     let cfg = AppConfig::load()?;
     let session = MlbSession::new()?;
-    let media_player = cfg.stream.video_player.as_deref();
+    let media_player = &cfg.stream.video_player;
 
     match mode {
         CliMode::Init => {
@@ -73,7 +73,7 @@ async fn run() -> Result<()> {
                 .find_stream_playback_url(team, date, media_type, feed_type, game_number)
                 .await?
             {
-                player::handle_playback_url(url, &cli, media_player)?
+                player::handle_playback_url(url, &cli, Some(media_player))?
             }
         }
         CliMode::PlayCondensedGame {
@@ -87,7 +87,7 @@ async fn run() -> Result<()> {
                 .find_highlight_playback_url(team, date, highlight_type, game_number)
                 .await?
             {
-                player::handle_playback_url(url, &cli, media_player)?
+                player::handle_playback_url(url, &cli, Some(media_player))?
             }
         }
         CliMode::PlayRecap {
@@ -105,7 +105,7 @@ async fn run() -> Result<()> {
                     .find_highlight_playback_url(team, date, highlight_type, game_number)
                     .await?
                 {
-                    player::handle_playback_url(url, &cli, media_player)?
+                    player::handle_playback_url(url, &cli, Some(media_player))?
                 }
             } else if let Some(schedule) = session.fetch_schedule_by_date(&date).await? {
                 // If no team provided, fetch recaps for all teams on specified day.
@@ -127,7 +127,7 @@ async fn run() -> Result<()> {
                         .find_highlight_playback_url(team, date, highlight_type, game_number)
                         .await?
                     {
-                        player::handle_playback_url(url, &cli, media_player)?
+                        player::handle_playback_url(url, &cli, Some(media_player))?
                     }
                 }
             }
