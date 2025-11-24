@@ -88,17 +88,12 @@ pub struct Credentials {
     pub password: String,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Default, Clone, Deserialize, Serialize)]
 #[serde(try_from = "String")]
 pub enum ConfigColor {
     Named(String),
+    #[default]
     TeamColors,
-}
-
-impl Default for ConfigColor {
-    fn default() -> Self {
-        ConfigColor::TeamColors
-    }
 }
 
 impl ConfigColor {
