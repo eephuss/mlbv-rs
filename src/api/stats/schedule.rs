@@ -57,6 +57,7 @@ pub struct GameData {
 #[serde(rename_all = "camelCase")]
 pub struct GameStatus {
     pub abstract_game_state: String,
+    pub status_code: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -346,6 +347,7 @@ mod tests {
             game_date: "2024-10-01T19:00:00Z".to_string(),
             status: GameStatus {
                 abstract_game_state: state.to_string(),
+                status_code: "F".to_string(),
             },
             teams: Matchup {
                 home: GameTeamStats {

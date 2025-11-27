@@ -1,4 +1,5 @@
 use serde::Deserialize;
+use std::fmt;
 use std::str::FromStr;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -55,6 +56,13 @@ pub enum TeamCode {
     Tex,
     Tor,
     Wsh,
+}
+
+impl fmt::Display for TeamCode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = format!("{:?}", self).to_uppercase();
+        write!(f, "{s}")
+    }
 }
 
 impl FromStr for TeamCode {

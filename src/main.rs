@@ -19,7 +19,7 @@ use crate::api::session::MlbSession;
 use crate::api::stats::schedule;
 use crate::cli::Cli;
 use crate::cli::args::CliMode;
-use crate::cli::display;
+use crate::cli::display::{self, DisplayMode};
 use crate::config::AppConfig;
 use crate::data::teamdata::Team;
 use anyhow::Result;
@@ -38,6 +38,7 @@ fn main() -> Result<()> {
 async fn run() -> Result<()> {
     let cli = Cli::parse();
     let mode = cli.to_mode()?;
+    let display_mode = DisplayMode::from_terminal_width();
 
     let log_level = match cli.verbose {
         0 => tracing::Level::WARN,
@@ -144,8 +145,8 @@ async fn run() -> Result<()> {
                     if idx > 0 {
                         println!(); // Blank line between days
                     }
-                    let (rows, header_date) = display::prepare_schedule_data(schedule);
-                    let table = display::create_schedule_table(rows, &header_date);
+                    let (rows, header_date) = display::prepare_schedule_data(schedule, &display_mode);
+                    let table = display::create_schedule_table(rows, &header_date, &display_mode);
                     let color_table = display::color_favorite_teams(table, &cfg);
                     println!("{}", color_table);
                 }
@@ -155,8 +156,8 @@ async fn run() -> Result<()> {
         }
         CliMode::DaySchedule { date } => {
             if let Some(schedule) = session.fetch_schedule_by_date(&date).await? {
-                let (rows, header_date) = display::prepare_schedule_data(schedule);
-                let table = display::create_schedule_table(rows, &header_date);
+                let (rows, header_date) = display::prepare_schedule_data(schedule, &display_mode);
+                let table = display::create_schedule_table(rows, &header_date, &display_mode);
                 let color_table = display::color_favorite_teams(table, &cfg);
                 println!("{}", color_table)
             } else {
