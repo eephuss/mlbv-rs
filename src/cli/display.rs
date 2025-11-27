@@ -1,7 +1,7 @@
 use crate::{
     api::stats::schedule::{Broadcast, DaySchedule},
     config::AppConfig,
-    data::teamdata::Team
+    data::teamdata::Team,
 };
 use chrono::{DateTime, Local};
 use tabled::{
@@ -137,7 +137,7 @@ fn prepare_feeds(broadcasts: &Option<Vec<Broadcast>>) -> String {
             } else {
                 format!("📺   {tv_feeds}\n📻   {radio_feeds}")
             }
-        },
+        }
     }
 }
 
