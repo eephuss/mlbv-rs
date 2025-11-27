@@ -108,8 +108,8 @@ impl<'de> Deserialize<'de> for HighlightType {
 impl fmt::Display for HighlightType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            HighlightType::CondensedGame => write!(f, "Cnd"),
-            HighlightType::Recap => write!(f, "Rcp"),
+            HighlightType::CondensedGame => write!(f, "CG"),
+            HighlightType::Recap => write!(f, "Recap"),
         }
     }
 }

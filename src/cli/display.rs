@@ -1,4 +1,8 @@
-use crate::{api::stats::schedule::DaySchedule, config::AppConfig, data::teamdata::Team};
+use crate::{
+    api::stats::schedule::{Broadcast, DaySchedule},
+    config::AppConfig,
+    data::teamdata::Team
+};
 use chrono::{DateTime, Local};
 use tabled::{
     Table, Tabled,
@@ -20,10 +24,8 @@ pub struct GameRow {
     pub score: String,
     #[tabled(rename = "State")]
     pub state: String,
-    #[tabled(rename = "TV")]
-    pub tv_feeds: String,
-    #[tabled(rename = "Radio")]
-    pub radio_feeds: String,
+    #[tabled(rename = "Available Feeds")]
+    pub feeds: String,
     #[tabled(rename = "Highlights")]
     pub highlights: String,
 }
@@ -58,14 +60,13 @@ pub fn create_schedule_table(rows: Vec<GameRow>, header_date_str: &str) -> Sched
         .with(table_theme)
         .modify((0, 0), header_date_str) // Replace matchup header with date + dow
         .modify(Columns::one(0), Alignment::left()) // Left-align times
-        .modify(Columns::one(0), Width::increase(35)) // Set minimum width for matchup column
-        .modify(Columns::one(0), Width::wrap(35).keep_words(true)) // Wrap to next line if too long
-        .modify(Columns::one(1), Width::wrap(7)) // Series
-        .modify(Columns::one(2), Width::wrap(7)) // Score
+        .modify(Columns::one(0), Width::increase(33)) // Set minimum width for matchup column
+        .modify(Columns::one(0), Width::wrap(33).keep_words(true)) // Wrap to next line if too long
+        .modify(Columns::one(1), Width::wrap(6)) // Series
+        .modify(Columns::one(2), Width::wrap(5)) // Score
         .modify(Columns::one(3), Width::wrap(10).keep_words(true)) // State
-        .modify(Columns::one(4), Width::wrap(12).keep_words(true)) // TV
-        .modify(Columns::one(5), Width::wrap(12).keep_words(true)) // Radio
-        .modify(Columns::one(6), Width::wrap(12).keep_words(true));
+        .modify(Columns::one(4), Width::wrap(16).keep_words(true)) // Feeds
+        .modify(Columns::one(5), Width::wrap(10).keep_words(true)); // Highlights
 
     ScheduleTable { table, rows }
 }
@@ -98,6 +99,48 @@ pub fn color_favorite_teams(sched_table: ScheduleTable, config: &AppConfig) -> T
     table
 }
 
+fn prepare_feeds(broadcasts: &Option<Vec<Broadcast>>) -> String {
+    let Some(feeds) = broadcasts else {
+        return String::new();
+    };
+
+    let mut tv_feeds: Vec<String> = feeds
+        .iter()
+        .filter(|feed| feed.kind == "TV")
+        .filter(|feed| feed.language == "en")
+        .filter(|feed| feed.available_for_streaming)
+        .map(|feed| match feed.is_national {
+            true => "National".to_string(),
+            false => title_case_feed(&feed.home_away),
+        })
+        .collect();
+    tv_feeds.sort();
+    let tv_feeds = tv_feeds.join(", ");
+
+    let mut radio_feeds = feeds
+        .iter()
+        .filter(|feed| feed.kind != "TV")
+        .filter(|feed| feed.language == "en")
+        .filter(|feed| feed.available_for_streaming)
+        .map(|feed| title_case_feed(&feed.home_away))
+        .collect::<Vec<_>>();
+    radio_feeds.sort();
+    let radio_feeds = radio_feeds.join(", ");
+
+    match (tv_feeds.is_empty(), radio_feeds.is_empty()) {
+        (true, true) => String::new(),
+        (false, true) => format!("📺   {tv_feeds}"),
+        (true, false) => format!("📻   {radio_feeds}"),
+        (false, false) => {
+            if tv_feeds == radio_feeds {
+                format!("📺📻 {tv_feeds}")
+            } else {
+                format!("📺   {tv_feeds}\n📻   {radio_feeds}")
+            }
+        },
+    }
+}
+
 pub fn prepare_schedule_data(schedule: DaySchedule) -> (Vec<GameRow>, String) {
     let weekday = schedule.date.format("%A");
     let header_date = format!("{} {}", schedule.date, weekday);
@@ -116,7 +159,7 @@ pub fn prepare_schedule_data(schedule: DaySchedule) -> (Vec<GameRow>, String) {
 
         let away_team = Team::find_by_id(&game.teams.away.team.id).nickname;
         let home_team = Team::find_by_id(&game.teams.home.team.id).nickname;
-        let matchup = format!("{game_time} - {away_team} at {home_team}");
+        let matchup = format!("{game_time} {away_team} at {home_team}");
 
         let games_in_series = &game.games_in_series;
         let series_game_number = &game.series_game_number;
@@ -132,36 +175,7 @@ pub fn prepare_schedule_data(schedule: DaySchedule) -> (Vec<GameRow>, String) {
 
         let state = String::from(&game.status.abstract_game_state);
 
-        let tv_feeds = if let Some(broadcasts) = &game.broadcasts {
-            let mut feeds: Vec<String> = broadcasts
-                .iter()
-                .filter(|feed| feed.kind == "TV")
-                .filter(|feed| feed.language == "en")
-                .filter(|feed| feed.available_for_streaming)
-                .map(|feed| match feed.is_national {
-                    true => "National".to_string(),
-                    false => title_case_feed(&feed.home_away),
-                })
-                .collect();
-            feeds.sort();
-            feeds.join(", ")
-        } else {
-            "".to_string()
-        };
-
-        let radio_feeds = if let Some(broadcasts) = &game.broadcasts {
-            let mut feeds: Vec<String> = broadcasts
-                .iter()
-                .filter(|feed| feed.kind != "TV")
-                .filter(|feed| feed.language == "en")
-                .filter(|feed| feed.available_for_streaming)
-                .map(|feed| title_case_feed(&feed.home_away))
-                .collect();
-            feeds.sort();
-            feeds.join(", ")
-        } else {
-            "".to_string()
-        };
+        let feeds = prepare_feeds(&game.broadcasts);
 
         let highlights = if let Some(media) = &game.content.media
             && let Some(highlights) = &media.epg_alternate
@@ -179,8 +193,7 @@ pub fn prepare_schedule_data(schedule: DaySchedule) -> (Vec<GameRow>, String) {
             series,
             score,
             state,
-            tv_feeds,
-            radio_feeds,
+            feeds,
             highlights,
         });
     }
