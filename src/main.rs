@@ -145,7 +145,8 @@ async fn run() -> Result<()> {
                     if idx > 0 {
                         println!(); // Blank line between days
                     }
-                    let (rows, header_date) = display::prepare_schedule_data(schedule, &display_mode);
+                    let (rows, header_date) =
+                        display::prepare_schedule_data(schedule, &display_mode);
                     let table = display::create_schedule_table(rows, &header_date, &display_mode);
                     let color_table = display::color_favorite_teams(table, &cfg);
                     println!("{}", color_table);

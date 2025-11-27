@@ -7,7 +7,9 @@ use chrono::{DateTime, Local};
 use tabled::{
     Table, Tabled,
     settings::{
-        Alignment, Span, Style, Theme, Width, object::{Columns, Rows}, style::HorizontalLine
+        Alignment, Span, Style, Theme, Width,
+        object::{Columns, Rows},
+        style::HorizontalLine,
     },
 };
 
@@ -71,7 +73,10 @@ fn schedule_table_theme() -> Theme {
 fn compact_table_theme() -> Theme {
     let style = Style::modern()
         .remove_horizontal()
-        .horizontals([(1, HorizontalLine::inherit(Style::modern()).intersection('┬'))])
+        .horizontals([(
+            1,
+            HorizontalLine::inherit(Style::modern()).intersection('┬'),
+        )])
         .remove_frame();
 
     Theme::from_style(style)
@@ -85,7 +90,11 @@ fn title_case_feed(feed: &str) -> String {
     }
 }
 
-pub fn create_schedule_table(rows: Vec<GameRow>, header_date_str: &str, display_mode: &DisplayMode) -> ScheduleTable {
+pub fn create_schedule_table(
+    rows: Vec<GameRow>,
+    header_date_str: &str,
+    display_mode: &DisplayMode,
+) -> ScheduleTable {
     let table_theme = schedule_table_theme();
     let mut table = Table::new(&rows);
 
@@ -167,7 +176,7 @@ fn prepare_matchup(game: &GameData, display_mode: &DisplayMode) -> String {
         DisplayMode::Compact => "%H:%M",
         _ => "%I:%M%p",
     };
-    
+
     let game_time = DateTime::parse_from_rfc3339(&game.game_date)
         .map(|dt| {
             dt.with_timezone(&Local)
@@ -179,7 +188,10 @@ fn prepare_matchup(game: &GameData, display_mode: &DisplayMode) -> String {
 
     match display_mode {
         DisplayMode::Standard => {
-            format!("{} {} at {}", game_time, away_team.nickname, home_team.nickname)
+            format!(
+                "{} {} at {}",
+                game_time, away_team.nickname, home_team.nickname
+            )
         }
         DisplayMode::Condensed => {
             format!("{} {} @ {}", game_time, away_team.code, home_team.code)
@@ -246,20 +258,20 @@ fn prepare_feeds(game: &GameData, display_mode: &DisplayMode) -> String {
             let tv_feed_types = tv_feed_types.join(",");
 
             let mut radio_feed_types: Vec<String> = radio_feeds
-                .map(|feed| feed
-                    .home_away
-                    .chars()
-                    .next()
-                    .expect("Couldn't get first character of home_away")
-                    .to_string()
-                    .to_uppercase(),
-                )
+                .map(|feed| {
+                    feed.home_away
+                        .chars()
+                        .next()
+                        .expect("Couldn't get first character of home_away")
+                        .to_string()
+                        .to_uppercase()
+                })
                 .collect();
             radio_feed_types.sort();
             let radio_feed_types = radio_feed_types.join(",");
 
             (tv_feed_types, radio_feed_types)
-        },
+        }
         _ => {
             let mut tv_feed_types: Vec<String> = tv_feeds
                 .map(|feed| match feed.is_national {
@@ -277,7 +289,7 @@ fn prepare_feeds(game: &GameData, display_mode: &DisplayMode) -> String {
             let radio_feed_types = radio_feed_types.join(", ");
 
             (format!(" {tv_feed_types}"), format!(" {radio_feed_types}"))
-        },
+        }
     };
 
     match (tv_feeds.is_empty(), radio_feeds.is_empty()) {
@@ -313,12 +325,10 @@ fn prepare_highlights(game: &GameData, display_mode: &DisplayMode) -> String {
                     .collect();
                 highlight_types.sort();
                 highlight_types.join(",")
-            },
+            }
             _ => {
-                let mut highlight_types: Vec<String> = highlights
-                    .iter()
-                    .map(|h| h.title.to_string())
-                    .collect();
+                let mut highlight_types: Vec<String> =
+                    highlights.iter().map(|h| h.title.to_string()).collect();
                 highlight_types.sort();
                 highlight_types.join(", ")
             }
@@ -328,7 +338,10 @@ fn prepare_highlights(game: &GameData, display_mode: &DisplayMode) -> String {
     }
 }
 
-pub fn prepare_schedule_data(schedule: DaySchedule, display_mode: &DisplayMode) -> (Vec<GameRow>, String) {
+pub fn prepare_schedule_data(
+    schedule: DaySchedule,
+    display_mode: &DisplayMode,
+) -> (Vec<GameRow>, String) {
     let weekday = schedule.date.format("%A");
     let header_date = format!("{} {}", schedule.date, weekday);
 
