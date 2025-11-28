@@ -96,16 +96,17 @@ pub fn create_schedule_table(
     display_mode: &DisplayMode,
 ) -> ScheduleTable {
     let table_theme = schedule_table_theme();
+    let compact_theme = compact_table_theme();
     let mut table = Table::new(&rows);
 
     table
-        .with(table_theme)
         .modify((0, 0), header_date_str) // Replace matchup header with date + dow
         .modify(Columns::one(0), Alignment::left()); // Left-align times
 
     match display_mode {
         DisplayMode::Standard => {
             table
+                .with(table_theme)
                 .modify(Columns::one(0), Width::increase(33)) // Set minimum width for matchup column
                 .modify(Columns::one(0), Width::wrap(33).keep_words(true)) // Wrap to next line if too long
                 .modify(Columns::one(1), Width::wrap(6)) // Series
@@ -116,6 +117,7 @@ pub fn create_schedule_table(
         }
         DisplayMode::Condensed => {
             table
+                .with(table_theme)
                 .modify(Columns::one(0), Width::wrap(17)) // Wrap to next line if too long
                 .modify(Columns::one(1), Width::wrap(6)) // Series
                 .modify(Columns::one(2), Width::wrap(5)) // Score
@@ -124,11 +126,9 @@ pub fn create_schedule_table(
                 .modify(Columns::one(5), Width::wrap(10)); // Highlights
         }
         DisplayMode::Compact => {
-            let compact_theme = compact_table_theme();
             table
                 .with(compact_theme)
                 .modify(Rows::one(0), Span::column(6)) // Span header across all columns
-                // .modify(Columns::one(0), Width::wrap(13)) // Wrap to next line if too long
                 .modify(Columns::one(1), Width::wrap(3)) // Series
                 .modify(Columns::one(2), Width::wrap(5)) // Score
                 .modify(Columns::one(3), Width::wrap(3)) // State
@@ -228,79 +228,51 @@ fn prepare_feeds(game: &GameData, display_mode: &DisplayMode) -> String {
         return String::new();
     };
 
-    let tv_feeds = feeds
-        .iter()
-        .filter(|feed| feed.kind == "TV")
-        .filter(|feed| feed.language == "en")
-        .filter(|feed| feed.available_for_streaming);
+    let is_compact = matches!(display_mode, DisplayMode::Compact);
+    let (separator, spacing) = match is_compact {
+        true => (",", ""),
+        false => (", ", " "),
+    };
 
-    let radio_feeds = feeds
-        .iter()
-        .filter(|feed| feed.kind != "TV")
-        .filter(|feed| feed.language == "en")
-        .filter(|feed| feed.available_for_streaming);
-
-    let (tv_feeds, radio_feeds) = match display_mode {
-        DisplayMode::Compact => {
-            let mut tv_feed_types: Vec<String> = tv_feeds
-                .map(|feed| match feed.is_national {
-                    true => "Nat".to_string(),
-                    false => feed
-                        .home_away
-                        .chars()
-                        .next()
-                        .expect("Couldn't get first character of home_away")
-                        .to_string()
-                        .to_uppercase(),
-                })
-                .collect();
-            tv_feed_types.sort();
-            let tv_feed_types = tv_feed_types.join(",");
-
-            let mut radio_feed_types: Vec<String> = radio_feeds
-                .map(|feed| {
-                    feed.home_away
-                        .chars()
-                        .next()
-                        .expect("Couldn't get first character of home_away")
-                        .to_string()
-                        .to_uppercase()
-                })
-                .collect();
-            radio_feed_types.sort();
-            let radio_feed_types = radio_feed_types.join(",");
-
-            (tv_feed_types, radio_feed_types)
-        }
-        _ => {
-            let mut tv_feed_types: Vec<String> = tv_feeds
-                .map(|feed| match feed.is_national {
-                    true => "National".to_string(),
-                    false => title_case_feed(&feed.home_away),
-                })
-                .collect();
-            tv_feed_types.sort();
-            let tv_feed_types = tv_feed_types.join(", ");
-
-            let mut radio_feed_types: Vec<String> = radio_feeds
-                .map(|feed| title_case_feed(&feed.home_away))
-                .collect();
-            radio_feed_types.sort();
-            let radio_feed_types = radio_feed_types.join(", ");
-
-            (format!(" {tv_feed_types}"), format!(" {radio_feed_types}"))
+    let format_feed = |feed: &str, is_national: bool| -> String {
+        match (is_compact, is_national) {
+            (true, true) => "Nat".to_string(),
+            (true, false) => feed
+                .chars()
+                .next()
+                .unwrap_or('?')
+                .to_string()
+                .to_uppercase(),
+            (false, true) => "National".to_string(),
+            (false, false) => title_case_feed(feed),
         }
     };
 
+    let mut tv_feeds: Vec<String> = feeds
+        .iter()
+        .filter(|f| f.kind == "TV" && f.language == "en" && f.available_for_streaming)
+        .map(|f| format_feed(&f.home_away, f.is_national))
+        .collect();
+    tv_feeds.sort();
+    let tv_feeds = tv_feeds.join(separator);
+
+    let mut radio_feeds: Vec<String> = feeds
+        .iter()
+        .filter(|f| f.kind != "TV" && f.language == "en" && f.available_for_streaming)
+        .map(|f| format_feed(&f.home_away, false))
+        .collect();
+    radio_feeds.sort();
+    let radio_feeds = radio_feeds.join(separator);
+
     match (tv_feeds.is_empty(), radio_feeds.is_empty()) {
         (true, true) => String::new(),
-        (false, true) => format!("📺  {tv_feeds}"),
-        (true, false) => format!("📻  {radio_feeds}"),
+        (false, true) => format!("📺 {spacing}{tv_feeds}"),
+        (true, false) => format!("📻 {spacing}{radio_feeds}"),
         (false, false) => {
             if tv_feeds == radio_feeds {
-                format!("📺📻{tv_feeds}")
+                format!("📺📻{spacing}{tv_feeds}")
             } else {
-                format!("📺  {tv_feeds}\n📻  {radio_feeds}")
+                format!("📺 {spacing}{tv_feeds}\n📻 {spacing}{radio_feeds}")
             }
         }
     }
@@ -345,24 +317,18 @@ pub fn prepare_schedule_data(
     let weekday = schedule.date.format("%A");
     let header_date = format!("{} {}", schedule.date, weekday);
 
-    let mut rows = Vec::new();
+    let rows: Vec<GameRow> = schedule
+        .games
+        .iter()
+        .map(|game| GameRow {
+            matchup: prepare_matchup(game, display_mode),
+            series: prepare_series(game),
+            score: prepare_score(game),
+            state: prepare_state(game, display_mode),
+            feeds: prepare_feeds(game, display_mode),
+            highlights: prepare_highlights(game, display_mode),
+        })
+        .collect();
 
-    for game in &schedule.games {
-        let matchup = prepare_matchup(game, display_mode);
-        let series = prepare_series(game);
-        let score = prepare_score(game);
-        let state = prepare_state(game, display_mode);
-        let feeds = prepare_feeds(game, display_mode);
-        let highlights = prepare_highlights(game, display_mode);
-
-        rows.push(GameRow {
-            matchup,
-            series,
-            score,
-            state,
-            feeds,
-            highlights,
-        });
-    }
     (rows, header_date)
 }
