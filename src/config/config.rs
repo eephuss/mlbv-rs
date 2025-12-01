@@ -42,7 +42,7 @@ impl Default for Favorites {
     }
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Default, Deserialize)]
 pub struct Display {
     pub scores: bool,
     // pub linescore: bool,
@@ -50,16 +50,16 @@ pub struct Display {
     // pub stats_limit: u32,
 }
 
-impl Default for Display {
-    fn default() -> Self {
-        Self {
-            scores: false,
-            // linescore: true,
-            // timeformat: "%I:%M %p".to_string(),
-            // stats_limit: 5,
-        }
-    }
-}
+// impl Default for Display {
+//     fn default() -> Self {
+//         Self {
+//             scores: false,
+//             // linescore: true,
+//             // timeformat: "%I:%M %p".to_string(),
+//             // stats_limit: 5,
+//         }
+//     }
+// }
 
 #[derive(Debug, Deserialize)]
 pub struct Stream {

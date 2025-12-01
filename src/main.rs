@@ -165,7 +165,8 @@ async fn run() -> Result<()> {
         }
         CliMode::DaySchedule { date } => {
             if let Some(schedule) = session.fetch_schedule_by_date(&date).await? {
-                let (rows, header_date) = display::prepare_schedule_data(schedule, &display_mode, scores);
+                let (rows, header_date) =
+                    display::prepare_schedule_data(schedule, &display_mode, scores);
                 let table = display::create_schedule_table(rows, &header_date, &display_mode);
                 let color_table = display::color_favorite_teams(table, &cfg, &display_mode);
                 println!("{}", color_table)

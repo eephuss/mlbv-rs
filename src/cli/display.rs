@@ -5,11 +5,12 @@ use crate::{
 };
 use chrono::{DateTime, Local};
 use tabled::{
-    Table, Tabled, settings::{
+    Table, Tabled,
+    settings::{
         Alignment, Span, Style, Theme, Width,
         object::{Columns, Rows},
         style::HorizontalLine,
-    }
+    },
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -141,7 +142,11 @@ pub fn create_schedule_table(
     ScheduleTable { table, rows }
 }
 
-pub fn color_favorite_teams(sched_table: ScheduleTable, config: &AppConfig, display_mode: &DisplayMode) -> Table {
+pub fn color_favorite_teams(
+    sched_table: ScheduleTable,
+    config: &AppConfig,
+    display_mode: &DisplayMode,
+) -> Table {
     let mut table = sched_table.table;
     let is_standard = display_mode == &DisplayMode::Standard;
     let fav_teams = &config.favorites.teams;
@@ -153,10 +158,10 @@ pub fn color_favorite_teams(sched_table: ScheduleTable, config: &AppConfig, disp
         let matched_team = fav_teams.iter().find_map(|&code| {
             let team = Team::find_by_code(code);
             let code_str = code.to_string();
-            
-            if is_standard && row.matchup.contains(team.nickname) {
-                Some(code)
-            } else if !is_standard && row.matchup.contains(&code_str) {
+
+            if (is_standard && row.matchup.contains(team.nickname))
+                || (!is_standard && row.matchup.contains(&code_str))
+            {
                 Some(code)
             } else {
                 None
