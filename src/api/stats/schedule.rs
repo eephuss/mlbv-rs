@@ -53,11 +53,14 @@ pub struct GameData {
     pub series_game_number: u8,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GameStatus {
     pub abstract_game_state: String,
+    pub detailed_state: String,
     pub status_code: String,
+    pub reason: Option<String>,
+    pub coded_game_state: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -144,6 +147,8 @@ pub struct GameTeam {
 #[serde(rename_all = "camelCase")]
 pub struct Linescore {
     pub teams: ScoreTeams,
+    pub current_inning: Option<u8>,
+    pub is_top_inning: Option<bool>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -347,7 +352,10 @@ mod tests {
             game_date: "2024-10-01T19:00:00Z".to_string(),
             status: GameStatus {
                 abstract_game_state: state.to_string(),
+                detailed_state: "Final".to_string(),
                 status_code: "F".to_string(),
+                reason: None,
+                coded_game_state: "F".to_string(),
             },
             teams: Matchup {
                 home: GameTeamStats {
@@ -364,6 +372,8 @@ mod tests {
                 },
             },
             linescore: Some(Linescore {
+                current_inning: Some(7),
+                is_top_inning: Some(true),
                 teams: ScoreTeams {
                     home: Score { runs: Some(3) },
                     away: Score { runs: Some(2) },

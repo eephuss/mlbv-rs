@@ -101,7 +101,9 @@ pub fn create_schedule_table(
 
     table
         .modify((0, 0), header_date_str) // Replace matchup header with date + dow
-        .modify(Columns::one(0), Alignment::left()); // Left-align times
+        .modify(Columns::one(0), Alignment::left()) // Left-align times
+        .modify(Columns::one(1), Alignment::center()) // Center-align series
+        .modify(Columns::one(2), Alignment::center()); // Center-align scores
 
     match display_mode {
         DisplayMode::Standard => {
@@ -109,8 +111,8 @@ pub fn create_schedule_table(
                 .with(table_theme)
                 .modify(Columns::one(0), Width::increase(33)) // Set minimum width for matchup column
                 .modify(Columns::one(0), Width::wrap(33).keep_words(true)) // Wrap to next line if too long
-                .modify(Columns::one(1), Width::wrap(6)) // Series
-                .modify(Columns::one(2), Width::wrap(5)) // Score
+                .modify(Columns::one(1), Width::increase(6)) // Series
+                .modify(Columns::one(2), Width::increase(5)) // Score
                 .modify(Columns::one(3), Width::wrap(10).keep_words(true)) // State
                 .modify(Columns::one(4), Width::wrap(16)) // Feeds
                 .modify(Columns::one(5), Width::wrap(10)); // Highlights
@@ -119,8 +121,8 @@ pub fn create_schedule_table(
             table
                 .with(table_theme)
                 .modify(Columns::one(0), Width::wrap(17)) // Wrap to next line if too long
-                .modify(Columns::one(1), Width::wrap(6)) // Series
-                .modify(Columns::one(2), Width::wrap(5)) // Score
+                .modify(Columns::one(1), Width::increase(6)) // Series
+                .modify(Columns::one(2), Width::increase(5)) // Score
                 .modify(Columns::one(3), Width::wrap(10).keep_words(true)) // State
                 .modify(Columns::one(4), Width::wrap(16)) // Feeds
                 .modify(Columns::one(5), Width::wrap(10)); // Highlights
@@ -129,8 +131,8 @@ pub fn create_schedule_table(
             table
                 .with(compact_theme)
                 .modify(Rows::one(0), Span::column(6)) // Span header across all columns
-                .modify(Columns::one(1), Width::wrap(3)) // Series
-                .modify(Columns::one(2), Width::wrap(5)) // Score
+                .modify(Columns::one(1), Width::increase(3)) // Series
+                .modify(Columns::one(2), Width::increase(5)) // Score
                 .modify(Columns::one(3), Width::wrap(3)) // State
                 .modify(Columns::one(4), Width::wrap(7)) // Feeds
                 .modify(Columns::one(5), Width::wrap(3)); // Highlights
@@ -217,9 +219,55 @@ fn prepare_score(game: &GameData) -> String {
 }
 
 fn prepare_state(game: &GameData, display_mode: &DisplayMode) -> String {
-    match display_mode {
-        DisplayMode::Compact => game.status.status_code.clone(),
-        _ => game.status.abstract_game_state.clone(),
+    let status_code = &game.status.status_code;
+    let coded_game_state = &game.status.coded_game_state;
+    let abstract_state = &game.status.abstract_game_state;
+    let detailed_state = &game.status.detailed_state;
+
+    let is_compact = matches!(display_mode, DisplayMode::Compact);
+    let is_in_progress = status_code == "I" || matches!(coded_game_state.as_str(), "M" | "N");
+
+    if is_in_progress {
+        if let Some(linescore) = &game.linescore
+            && let Some(inning) = linescore.current_inning
+            && let Some(is_top) = linescore.is_top_inning
+        {
+            let half_str = match (is_compact, is_top) {
+                (true, true) => "T",
+                (true, false) => "B",
+                (false, true) => "Top",
+                (false, false) => "Bottom",
+            };
+            return format!("{} {}", half_str, inning);
+        }
+        return if is_compact {
+            status_code.clone()
+        } else {
+            abstract_state.clone()
+        };
+    }
+
+    // Handle games that completed in anything other than 9 innings
+    // Does not include suspended, canceled, or postponed games
+    if matches!(coded_game_state.as_str(), "F" | "O")
+        && let Some(linescore) = &game.linescore
+        && let Some(inning) = linescore.current_inning
+        && inning != 9
+    {
+        return if is_compact {
+            format!("F{}", inning)
+        } else if let Some(reason) = &game.status.reason {
+            format!("Final ({}):\n{}", inning, reason)
+        } else {
+            format!("Final ({})", inning)
+        };
+    }
+
+    // Default: use status_code for compact, detailed_state otherwise
+    if is_compact {
+        status_code.clone()
+    } else {
+        detailed_state.clone()
     }
 }
 

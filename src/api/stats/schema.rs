@@ -59,6 +59,7 @@ struct GameStatus {
     coded_game_state: String,
     detailed_state: String,
     status_code: String,
+    reason: Option<String>,
     #[serde(rename = "startTimeTBD")]
     start_time_tbd: bool,
     abstract_game_code: String,
