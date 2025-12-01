@@ -56,6 +56,14 @@ async fn run() -> Result<()> {
     let session = MlbSession::new()?;
     let media_player = &cfg.stream.video_player;
 
+    let scores = if cli.scores {
+        true
+    } else if cli.no_scores {
+        false
+    } else {
+        cfg.display.scores
+    };
+
     match mode {
         CliMode::Init => {
             AppConfig::generate_config()?;
@@ -146,9 +154,9 @@ async fn run() -> Result<()> {
                         println!(); // Blank line between days
                     }
                     let (rows, header_date) =
-                        display::prepare_schedule_data(schedule, &display_mode);
+                        display::prepare_schedule_data(schedule, &display_mode, scores);
                     let table = display::create_schedule_table(rows, &header_date, &display_mode);
-                    let color_table = display::color_favorite_teams(table, &cfg);
+                    let color_table = display::color_favorite_teams(table, &cfg, &display_mode);
                     println!("{}", color_table);
                 }
             } else {
@@ -157,9 +165,9 @@ async fn run() -> Result<()> {
         }
         CliMode::DaySchedule { date } => {
             if let Some(schedule) = session.fetch_schedule_by_date(&date).await? {
-                let (rows, header_date) = display::prepare_schedule_data(schedule, &display_mode);
+                let (rows, header_date) = display::prepare_schedule_data(schedule, &display_mode, scores);
                 let table = display::create_schedule_table(rows, &header_date, &display_mode);
-                let color_table = display::color_favorite_teams(table, &cfg);
+                let color_table = display::color_favorite_teams(table, &cfg, &display_mode);
                 println!("{}", color_table)
             } else {
                 // TODO: Detect when in off-season and add cute "see you next spring!" message.

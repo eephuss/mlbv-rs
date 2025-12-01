@@ -113,6 +113,14 @@ pub struct Cli {
     #[arg(short, long)]
     pub url: bool,
 
+    /// Show scores (overrides config file setting)
+    #[arg(long, conflicts_with = "no_scores")]
+    pub scores: bool,
+
+    /// Hide scores (overrides config file setting)
+    #[arg(long, conflicts_with = "scores")]
+    pub no_scores: bool,
+
     /// Verbose logging (-v, -vv, -vvv for more detail)
     #[arg(
         short,

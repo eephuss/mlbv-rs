@@ -16,8 +16,8 @@ pub struct AppConfig {
     #[serde(default)]
     pub favorites: Favorites,
 
-    // #[serde(default)]
-    // pub display: Display,
+    #[serde(default)]
+    pub display: Display,
     #[serde(default)]
     pub stream: Stream,
     // pub streamlink: Option<Streamlink>,
@@ -42,24 +42,24 @@ impl Default for Favorites {
     }
 }
 
-// #[derive(Debug, Deserialize)]
-// pub struct Display {
-//     pub scores: bool,
-//     pub linescore: bool,
-//     pub timeformat: String,
-//     pub stats_limit: u32,
-// }
+#[derive(Debug, Deserialize)]
+pub struct Display {
+    pub scores: bool,
+    // pub linescore: bool,
+    // pub timeformat: String,
+    // pub stats_limit: u32,
+}
 
-// impl Default for Display {
-//     fn default() -> Self {
-//         Self {
-//             scores: true,
-//             linescore: true,
-//             timeformat: "%I:%M %p".to_string(),
-//             stats_limit: 5,
-//         }
-//     }
-// }
+impl Default for Display {
+    fn default() -> Self {
+        Self {
+            scores: false,
+            // linescore: true,
+            // timeformat: "%I:%M %p".to_string(),
+            // stats_limit: 5,
+        }
+    }
+}
 
 #[derive(Debug, Deserialize)]
 pub struct Stream {

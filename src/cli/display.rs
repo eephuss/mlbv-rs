@@ -5,12 +5,11 @@ use crate::{
 };
 use chrono::{DateTime, Local};
 use tabled::{
-    Table, Tabled,
-    settings::{
+    Table, Tabled, settings::{
         Alignment, Span, Style, Theme, Width,
         object::{Columns, Rows},
         style::HorizontalLine,
-    },
+    }
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -142,9 +141,9 @@ pub fn create_schedule_table(
     ScheduleTable { table, rows }
 }
 
-pub fn color_favorite_teams(sched_table: ScheduleTable, config: &AppConfig) -> Table {
+pub fn color_favorite_teams(sched_table: ScheduleTable, config: &AppConfig, display_mode: &DisplayMode) -> Table {
     let mut table = sched_table.table;
-
+    let is_standard = display_mode == &DisplayMode::Standard;
     let fav_teams = &config.favorites.teams;
     let fav_color = &config.favorites.color;
 
@@ -153,7 +152,11 @@ pub fn color_favorite_teams(sched_table: ScheduleTable, config: &AppConfig) -> T
 
         let matched_team = fav_teams.iter().find_map(|&code| {
             let team = Team::find_by_code(code);
-            if row.matchup.contains(team.nickname) {
+            let code_str = code.to_string();
+            
+            if is_standard && row.matchup.contains(team.nickname) {
+                Some(code)
+            } else if !is_standard && row.matchup.contains(&code_str) {
                 Some(code)
             } else {
                 None
@@ -208,7 +211,11 @@ fn prepare_series(game: &GameData) -> String {
     format!("{}/{}", &game.series_game_number, &game.games_in_series)
 }
 
-fn prepare_score(game: &GameData) -> String {
+fn prepare_score(game: &GameData, scores: bool) -> String {
+    if !scores {
+        return String::new();
+    };
+
     let Some(linescore) = &game.linescore else {
         return String::new();
     };
@@ -320,7 +327,7 @@ fn prepare_feeds(game: &GameData, display_mode: &DisplayMode) -> String {
             if tv_feeds == radio_feeds {
                 format!("📺📻{spacing}{tv_feeds}")
             } else {
-                format!("📺 {spacing}{tv_feeds}\n📻 {spacing}{radio_feeds}")
+                format!("📺  {spacing}{tv_feeds}\n📻  {spacing}{radio_feeds}")
             }
         }
     }
@@ -361,6 +368,7 @@ fn prepare_highlights(game: &GameData, display_mode: &DisplayMode) -> String {
 pub fn prepare_schedule_data(
     schedule: DaySchedule,
     display_mode: &DisplayMode,
+    scores: bool,
 ) -> (Vec<GameRow>, String) {
     let weekday = schedule.date.format("%A");
     let header_date = format!("{} {}", schedule.date, weekday);
@@ -371,7 +379,7 @@ pub fn prepare_schedule_data(
         .map(|game| GameRow {
             matchup: prepare_matchup(game, display_mode),
             series: prepare_series(game),
-            score: prepare_score(game),
+            score: prepare_score(game, scores),
             state: prepare_state(game, display_mode),
             feeds: prepare_feeds(game, display_mode),
             highlights: prepare_highlights(game, display_mode),
