@@ -255,7 +255,7 @@ impl MlbSession<Authorized> {
     ) -> Result<Option<String>> {
         // Fetch schedule and filter for team games on specified date.
         let Some(team_games) = self
-            .fetch_schedule_by_date(&date)
+            .fetch_schedule_by_date(&date, None)
             .await?
             .and_then(|s| s.find_team_games(team))
         else {

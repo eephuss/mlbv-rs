@@ -2,7 +2,7 @@ use chrono::{Duration, Local};
 use clap::{ArgGroup, Parser};
 
 use crate::api::mediagateway::streams::{FeedType, MediaType};
-use crate::api::stats::schedule::GameDate;
+use crate::api::stats::schedule::{GameDate, ScheduleFilter};
 use crate::data::teamdata::TeamCode;
 
 /// Stream live/archived MLB.tv games; view stats, schedules and highlights
@@ -66,6 +66,10 @@ pub struct Cli {
                      Cannot be used with --team."
     )]
     pub days: Option<i64>,
+
+    /// Filter schedule or recaps by league, division, or team
+    #[arg(short = 'o', long)]
+    pub filter: Option<ScheduleFilter>,
 
     /// Select feed type: home, away, or national
     #[arg(short, long)]
@@ -153,14 +157,16 @@ pub enum CliMode {
         date: chrono::NaiveDate,
         team_code: Option<TeamCode>,
         game_number: Option<u8>,
-        // filter: String,
+        filter: Option<ScheduleFilter>,
     },
     RangeSchedule {
         start_date: chrono::NaiveDate,
         end_date: chrono::NaiveDate,
+        filter: Option<ScheduleFilter>,
     },
     DaySchedule {
         date: chrono::NaiveDate,
+        filter: Option<ScheduleFilter>,
     },
 }
 
@@ -194,6 +200,7 @@ impl Cli {
                 date,
                 team_code: self.team,
                 game_number: self.game_number,
+                filter: self.filter.clone(),
             });
         }
 
@@ -223,9 +230,13 @@ impl Cli {
             return Ok(CliMode::RangeSchedule {
                 start_date,
                 end_date,
+                filter: self.filter.clone(),
             });
         }
 
-        Ok(CliMode::DaySchedule { date })
+        Ok(CliMode::DaySchedule {
+            date,
+            filter: self.filter.clone(),
+        })
     }
 }

@@ -8,6 +8,18 @@ pub enum League {
     National,
 }
 
+impl FromStr for League {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "american" | "al" => Ok(Self::American),
+            "national" | "nl" => Ok(Self::National),
+            _ => anyhow::bail!("Invalid league: {s}"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum DivisionRegion {
     East,
@@ -15,11 +27,27 @@ pub enum DivisionRegion {
     West,
 }
 
-#[derive(Debug)]
-#[allow(dead_code)] // Hush warnings until these are used.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Division {
+    pub id: u32,
     pub name: DivisionRegion,
     pub league: League,
+}
+
+impl FromStr for Division {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "al_east" | "ale" => Ok(AL_EAST),
+            "al_central" | "alc" => Ok(AL_CENTRAL),
+            "al_west" | "alw" => Ok(AL_WEST),
+            "nl_east" | "nle" => Ok(NL_EAST),
+            "nl_central" | "nlc" => Ok(NL_CENTRAL),
+            "nl_west" | "nlw" => Ok(NL_WEST),
+            _ => anyhow::bail!("Invalid division: {s}"),
+        }
+    }
 }
 
 #[derive(Copy, Clone, Debug, Deserialize, PartialEq)]
@@ -121,7 +149,6 @@ impl TeamCode {
 }
 
 #[derive(Copy, Clone, Debug)]
-#[allow(dead_code)] // Hush warnings until these are used.
 pub struct Team {
     pub id: u32,
     pub code: TeamCode,
@@ -182,27 +209,33 @@ impl Team {
 }
 
 pub const AL_EAST: Division = Division {
+    id: 201,
     name: DivisionRegion::East,
     league: League::American,
 };
 pub const AL_CENTRAL: Division = Division {
+    id: 202,
     name: DivisionRegion::Central,
     league: League::American,
 };
 pub const AL_WEST: Division = Division {
+    id: 200,
     name: DivisionRegion::West,
     league: League::American,
 };
 
 pub const NL_EAST: Division = Division {
+    id: 204,
     name: DivisionRegion::East,
     league: League::National,
 };
 pub const NL_CENTRAL: Division = Division {
+    id: 205,
     name: DivisionRegion::Central,
     league: League::National,
 };
 pub const NL_WEST: Division = Division {
+    id: 203,
     name: DivisionRegion::West,
     league: League::National,
 };

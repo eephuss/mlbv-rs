@@ -34,8 +34,9 @@ fn parses_day_schedule_default() {
     let cli = Cli::parse_from(["mlbv-rs"]);
     let mode = cli.to_mode().expect("to_mode failed");
     match mode {
-        CliMode::DaySchedule { date } => {
+        CliMode::DaySchedule { date, filter } => {
             let today = Local::now().date_naive();
+            let _filter = filter;
             assert_eq!(date, today);
         }
         _ => panic!("Expected DaySchedule mode"),

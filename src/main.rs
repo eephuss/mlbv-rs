@@ -93,7 +93,7 @@ async fn run() -> Result<()> {
             let team = team_code.team();
             let highlight_type = schedule::HighlightType::CondensedGame;
             if let Some(url) = session
-                .find_highlight_playback_url(team, date, highlight_type, game_number)
+                .find_highlight_playback_url(team, date, highlight_type, game_number, None)
                 .await?
             {
                 player::handle_playback_url(url, &cli, Some(media_player))?
@@ -103,20 +103,21 @@ async fn run() -> Result<()> {
             date,
             team_code,
             game_number,
-            // TODO: Implement filters for this mode.
+            filter,
         } => {
             let highlight_type = schedule::HighlightType::Recap;
+            let filter = filter.as_ref();
 
             // If user provided a team, fetch recap for that team
             if let Some(team_code) = team_code {
                 let team = team_code.team();
                 if let Some(url) = session
-                    .find_highlight_playback_url(team, date, highlight_type, game_number)
+                    .find_highlight_playback_url(team, date, highlight_type, game_number, filter)
                     .await?
                 {
                     player::handle_playback_url(url, &cli, Some(media_player))?
                 }
-            } else if let Some(schedule) = session.fetch_schedule_by_date(&date).await? {
+            } else if let Some(schedule) = session.fetch_schedule_by_date(&date, filter).await? {
                 // If no team provided, fetch recaps for all teams on specified day.
                 let matchups: Vec<(String, String)> = schedule
                     .games
@@ -133,7 +134,13 @@ async fn run() -> Result<()> {
                     let team = Team::find_by_name(&home)
                         .ok_or_else(|| anyhow::anyhow!("Invalid team name"))?;
                     if let Some(url) = session
-                        .find_highlight_playback_url(team, date, highlight_type, game_number)
+                        .find_highlight_playback_url(
+                            team,
+                            date,
+                            highlight_type,
+                            game_number,
+                            filter,
+                        )
                         .await?
                     {
                         player::handle_playback_url(url, &cli, Some(media_player))?
@@ -144,9 +151,10 @@ async fn run() -> Result<()> {
         CliMode::RangeSchedule {
             start_date,
             end_date,
+            filter,
         } => {
             if let Some(schedules) = session
-                .fetch_schedule_by_range(&start_date, &end_date)
+                .fetch_schedule_by_range(&start_date, &end_date, filter.as_ref())
                 .await?
             {
                 for (idx, schedule) in schedules.into_iter().enumerate() {
@@ -163,8 +171,11 @@ async fn run() -> Result<()> {
                 println!("No games scheduled between {start_date} and {end_date}");
             }
         }
-        CliMode::DaySchedule { date } => {
-            if let Some(schedule) = session.fetch_schedule_by_date(&date).await? {
+        CliMode::DaySchedule { date, filter } => {
+            if let Some(schedule) = session
+                .fetch_schedule_by_date(&date, filter.as_ref())
+                .await?
+            {
                 let (rows, header_date) =
                     display::prepare_schedule_data(schedule, &display_mode, scores);
                 let table = display::create_schedule_table(rows, &header_date, &display_mode);

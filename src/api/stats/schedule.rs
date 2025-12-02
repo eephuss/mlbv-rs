@@ -1,10 +1,12 @@
 use crate::api::session::MlbSession;
-use crate::data::teamdata::Team;
+use crate::data::teamdata::{Division, League, TEAMS, Team, TeamCode};
+
 use anyhow::{Context, Result};
 use chrono::{Datelike, NaiveDate};
 use serde::Deserialize;
 use serde::de::{self, Deserializer, Unexpected};
 use std::fmt;
+use std::str::FromStr;
 
 #[derive(Debug, Deserialize)]
 struct ScheduleResponse {
@@ -174,12 +176,93 @@ pub struct Broadcast {
     pub language: String,
 }
 
+#[derive(Clone, Debug, Default)]
+pub struct ScheduleFilter {
+    pub league: Option<Vec<League>>,
+    pub division: Option<Vec<Division>>,
+    pub team: Option<Vec<Team>>,
+}
+
+impl FromStr for ScheduleFilter {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let mut filter = ScheduleFilter::default();
+
+        for part in s.split(',') {
+            let part = part.trim();
+            if let Ok(league) = League::from_str(part) {
+                filter.league.get_or_insert_with(Vec::new).push(league);
+            } else if let Ok(division) = Division::from_str(part) {
+                filter.division.get_or_insert_with(Vec::new).push(division);
+            } else if let Ok(team_code) = TeamCode::from_str(part) {
+                let team = team_code.team();
+                filter.team.get_or_insert_with(Vec::new).push(*team);
+            } else {
+                return Err(anyhow::anyhow!("Invalid filter value: {}", part));
+            }
+        }
+
+        Ok(filter)
+    }
+}
+
+fn prepare_filters(filter: &ScheduleFilter) -> String {
+    let league_str = if let Some(leagues) = &filter.league {
+        let league_ids = leagues
+            .iter()
+            .map(|l| match l {
+                League::American => "103",
+                League::National => "104",
+            })
+            .collect::<Vec<&str>>()
+            .join(",");
+
+        format!("&leagueId={league_ids},")
+    } else {
+        String::new()
+    };
+
+    let division_str = if let Some(divisions) = &filter.division {
+        // Stats API doesn't accept division IDs directly; map to team IDs instead.
+        let division_team_ids = TEAMS
+            .iter()
+            .filter(|t| divisions.contains(t.division))
+            .map(|t| t.id.to_string())
+            .collect::<Vec<String>>()
+            .join(",");
+
+        format!("&teamId={division_team_ids},")
+    } else {
+        String::new()
+    };
+
+    let team_str = if let Some(teams) = &filter.team {
+        let team_ids = teams
+            .iter()
+            .map(|t| t.id.to_string())
+            .collect::<Vec<String>>()
+            .join(",");
+
+        format!("&teamId={team_ids},")
+    } else {
+        String::new()
+    };
+
+    format!("{league_str}{division_str}{team_str}")
+}
+
 impl<State> MlbSession<State> {
     async fn make_schedule_request(
         &self,
         start_date: &NaiveDate,
         end_date: &NaiveDate,
+        filter: Option<&ScheduleFilter>,
     ) -> Result<ScheduleResponse> {
+        let filters = match filter {
+            Some(filter) => prepare_filters(filter),
+            None => String::new(),
+        };
         let hydrate = concat!(
             "hydrate=,",
             "broadcasts(all),",
@@ -190,9 +273,10 @@ impl<State> MlbSession<State> {
             "probablePitcher(note)",
         );
         let url = format!(
-            "https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate={s}&endDate={e}&{h}",
+            "https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate={s}&endDate={e}{f}&{h}",
             s = start_date,
             e = end_date,
+            f = filters,
             h = hydrate
         );
 
@@ -218,8 +302,11 @@ impl<State> MlbSession<State> {
         &self,
         start_date: &NaiveDate,
         end_date: &NaiveDate,
+        filter: Option<&ScheduleFilter>,
     ) -> Result<Option<Vec<DaySchedule>>> {
-        let resp = self.make_schedule_request(start_date, end_date).await?;
+        let resp = self
+            .make_schedule_request(start_date, end_date, filter)
+            .await?;
 
         match resp.dates.len() {
             0 => Ok(None), // If no games are scheduled, then no dates are returned.
@@ -227,8 +314,12 @@ impl<State> MlbSession<State> {
         }
     }
 
-    pub async fn fetch_schedule_by_date(&self, date: &NaiveDate) -> Result<Option<DaySchedule>> {
-        let mut dates = self.make_schedule_request(date, date).await?.dates;
+    pub async fn fetch_schedule_by_date(
+        &self,
+        date: &NaiveDate,
+        filter: Option<&ScheduleFilter>,
+    ) -> Result<Option<DaySchedule>> {
+        let mut dates = self.make_schedule_request(date, date, filter).await?.dates;
 
         match dates.len() {
             0 => Ok(None), // If no games are scheduled, then no dates are returned.
@@ -245,9 +336,10 @@ impl<State> MlbSession<State> {
         date: NaiveDate,
         highlight_type: HighlightType,
         game_number: Option<u8>,
+        filter: Option<&ScheduleFilter>,
     ) -> Result<Option<String>> {
         let Some(team_games) = self
-            .fetch_schedule_by_date(&date)
+            .fetch_schedule_by_date(&date, filter)
             .await?
             .and_then(|s| s.find_team_games(team))
         else {
@@ -255,6 +347,7 @@ impl<State> MlbSession<State> {
             return Ok(None);
         };
 
+        // TODO: Do we want to hard code high bitrate here?
         let game_data = select_game(team_games, game_number)?;
         let Some(url) = game_data.find_highlight(highlight_type, "highBit") else {
             println!(
