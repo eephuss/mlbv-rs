@@ -1,5 +1,6 @@
 use crate::api::session::MlbSession;
 use crate::data::teamdata::{Division, League, TEAMS, Team, TeamCode};
+use crate::config::AppConfig;
 
 use anyhow::{Context, Result};
 use chrono::{Datelike, NaiveDate};
@@ -198,6 +199,12 @@ impl FromStr for ScheduleFilter {
             } else if let Ok(team_code) = TeamCode::from_str(part) {
                 let team = team_code.team();
                 filter.team.get_or_insert_with(Vec::new).push(*team);
+            } else if part == "favs" {
+                let config = AppConfig::load()?;
+                for team_code in config.favorites.teams {
+                    let team = team_code.team();
+                    filter.team.get_or_insert_with(Vec::new).push(*team);
+                }
             } else {
                 return Err(anyhow::anyhow!("Invalid filter value: {}", part));
             }
